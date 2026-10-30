@@ -72,39 +72,80 @@ def overlap_scores(predicted, reference):
     return dice, iou
 
 
-print(f"Reference foreground coverage: {100 * reference.mean():.2f}%")
+m0 = dark_mask
 
-for name, predicted in [
-    ("Dark side", dark_mask),
-    ("Bright side", bright_mask),
-]:
+# M1: keep foreground components containing at least 16 pixels.
+count, labels, stats, _ = cv2.connectedComponentsWithStats(
+    m0.astype(np.uint8),
+    connectivity=8,
+)
+
+keep = stats[:, cv2.CC_STAT_AREA] >= 16
+keep[0] = False  # Label 0 represents background.
+m1 = keep[labels]
+
+# A radius-1 disk on the pixel grid.
+kernel = np.array([
+    [0, 1, 0],
+    [1, 1, 1],
+    [0, 1, 0],
+], dtype=np.uint8)
+
+# M2: opening, then closing.
+opened = cv2.morphologyEx(
+    m1.astype(np.uint8),
+    cv2.MORPH_OPEN,
+    kernel,
+    iterations=1,
+    borderType=cv2.BORDER_REPLICATE,
+)
+
+m2 = cv2.morphologyEx(
+    opened,
+    cv2.MORPH_CLOSE,
+    kernel,
+    iterations=1,
+    borderType=cv2.BORDER_REPLICATE,
+).astype(bool)
+
+print("\nM0 foreground components:", count - 1)
+print("M1 retained components:", int(keep.sum()))
+
+for name, predicted in [("M0", m0), ("M1", m1), ("M2", m2)]:
     dice, iou = overlap_scores(predicted, reference)
-    print(f"{name}: Dice={dice:.4f}, IoU={iou:.4f}")
+    print(
+        f"{name}: Dice={dice:.4f}, IoU={iou:.4f}, "
+        f"coverage={100 * predicted.mean():.2f}%"
+    )
 
-fig, axes = plt.subplots(2, 2, figsize=(8, 8))
+images = [
+    image,
+    gray,
+    reference.astype(np.uint8) * 255,
+    m0.astype(np.uint8) * 255,
+    m1.astype(np.uint8) * 255,
+    m2.astype(np.uint8) * 255,
+]
 
-axes[0, 0].imshow(image)
-axes[0, 0].set_title("Original RGB")
+titles = [
+    "Original RGB",
+    "Grayscale",
+    "Binary reference",
+    "M0: raw Otsu",
+    "M1: remove small components",
+    "M2: M1 + opening + closing",
+]
 
-axes[0, 1].imshow(
-    reference, cmap="gray", vmin=0, vmax=1,
-    interpolation="nearest",
-)
-axes[0, 1].set_title("Binary reference: mask >= 128")
+fig, axes = plt.subplots(2, 3, figsize=(12, 7))
 
-axes[1, 0].imshow(
-    dark_mask, cmap="gray", vmin=0, vmax=1, interpolation="nearest"
-)
-axes[1, 0].set_title(f"Dark side: intensity <= {threshold:g}")
-
-axes[1, 1].imshow(
-    bright_mask, cmap="gray", vmin=0, vmax=1, interpolation="nearest"
-)
-axes[1, 1].set_title(f"Bright side: intensity > {threshold:g}")
-
-for axis in axes.flat:
+for axis, displayed, title in zip(axes.flat, images, titles):
+    axis.imshow(
+        displayed, cmap="gray", vmin=0, vmax=255,
+        interpolation="nearest",
+    )
+    axis.set_title(title)
     axis.axis("off")
 
 fig.suptitle(record["sample_id"])
-plt.tight_layout()
+plt.tight_layout(rect=(0, 0, 1, 0.95))
 plt.show()
