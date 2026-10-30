@@ -1,0 +1,14 @@
+{
+  "method": "otsu",
+  "grayscale_conversion": "RGB2GRAY",
+  "threshold_mode": "per_image_otsu",
+  "foreground_polarity": "dark",
+  "postprocessing": "none",
+  "reference_threshold": 128,
+  "polarity_selected_on": "train",
+  "selection_metric": "mean_category_dice",
+  "training_mean_category_dice": 0.6833719261868167,
+  "split_sha256": "ceeba8e282f77cdb78a9675618b3dcb6729fbc2339e2d112085a11720fc9108d",
+  "opencv_version": "4.14.0",
+  "numpy_version": "2.5.4"
+}

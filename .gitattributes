@@ -1,1 +1,4 @@
 data/metadata/split_manifest.csv -text
+data/configs/otsu_raw.csv -text
+data/results/otsu_train.csv -text
+data/results/otsu_val.csv -text
