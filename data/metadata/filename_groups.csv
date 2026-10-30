@@ -1,0 +1,366 @@
+filename_prefix,image_count,category_count,categories
+GT1815550,1,1,Polyp
+GT1815553,1,1,Polyp
+GT1815555,3,2,Low-grade IN | Serrated adenoma
+GT1815563,2,1,Low-grade IN
+GT1815572,1,1,Low-grade IN
+GT1815603,1,1,Polyp
+GT1815635,1,1,Low-grade IN
+GT2000000,7,1,Normal
+GT2001803,3,1,Low-grade IN
+GT2001804,2,1,Low-grade IN
+GT2001814,6,2,Low-grade IN | Polyp
+GT2001817,2,1,Polyp
+GT2001818,3,1,Polyp
+GT2001822,3,1,Low-grade IN
+GT2001837,5,1,Adenocarcinoma
+GT2001838,5,1,Adenocarcinoma
+GT2001849,12,1,Adenocarcinoma
+GT2012114,3,1,Low-grade IN
+GT2012118,9,1,Adenocarcinoma
+GT2012149,12,2,High-grade IN | Low-grade IN
+GT2012154,14,2,Low-grade IN | Polyp
+GT2012156,13,2,High-grade IN | Low-grade IN
+GT2012165,7,1,Adenocarcinoma
+GT2012173,7,1,Polyp
+GT2012175,4,1,Low-grade IN
+GT2012191,6,1,Polyp
+GT2012195,5,1,Low-grade IN
+GT2012196,6,1,High-grade IN
+GT2012197,7,1,Low-grade IN
+GT2012212,3,1,Low-grade IN
+GT2012217,4,1,Polyp
+GT2012219,3,1,Adenocarcinoma
+GT2012221,1,1,Normal
+GT2012223,4,1,Adenocarcinoma
+GT2012232,4,1,Low-grade IN
+GT2012237,8,1,Polyp
+GT2012246,4,1,Low-grade IN
+GT2012275,11,2,High-grade IN | Low-grade IN
+GT2012286,4,1,Polyp
+GT2012324,15,1,Adenocarcinoma
+GT2012329,17,1,Adenocarcinoma
+GT2012336,8,1,Adenocarcinoma
+GT2012353,10,1,Adenocarcinoma
+GT2012358,18,2,Adenocarcinoma | Polyp
+GT2012400,6,1,Low-grade IN
+GT2012426,5,1,Polyp
+GT2012436,6,1,High-grade IN
+GT2012467,6,1,Low-grade IN
+GT2012468,6,1,Adenocarcinoma
+GT2012508,18,2,Adenocarcinoma | High-grade IN
+GT2012525,4,1,Adenocarcinoma
+GT2012915,6,1,Normal
+GT2013084,6,1,Adenocarcinoma
+GT2013097,1,1,Polyp
+GT2013099,1,1,Polyp
+GT2013108,1,1,Polyp
+GT2013109,1,1,Adenocarcinoma
+GT2013111,4,2,Adenocarcinoma | High-grade IN
+GT2013112,6,2,Low-grade IN | Normal
+GT2013118,3,2,Adenocarcinoma | Polyp
+GT2013119,1,1,Normal
+GT2013123,1,1,Low-grade IN
+GT2013124,2,2,Adenocarcinoma | Low-grade IN
+GT2013128,4,3,Adenocarcinoma | Low-grade IN | Normal
+GT2013132,7,3,Adenocarcinoma | Low-grade IN | Polyp
+GT2013145,2,2,Polyp | Serrated adenoma
+GT2013151,1,1,Adenocarcinoma
+GT2013152,4,2,Adenocarcinoma | Polyp
+GT2013356,1,1,Polyp
+GT2013902,1,1,Polyp
+GT2013911,1,1,Polyp
+GT2013923,1,1,Low-grade IN
+GT2014077,1,1,Polyp
+GT2014080,1,1,Low-grade IN
+GT2014093,1,1,Low-grade IN
+GT2014094,1,1,Low-grade IN
+GT2014097,1,1,Polyp
+GT2014209,1,1,Adenocarcinoma
+GT2014356,1,1,Polyp
+GT2014361,1,1,Polyp
+GT2014646,4,1,Low-grade IN
+GT2014650,1,1,Polyp
+GT2014662,18,2,Adenocarcinoma | High-grade IN
+GT2014665,11,2,Adenocarcinoma | Low-grade IN
+GT2014666,6,1,Adenocarcinoma
+GT2014667,10,2,Adenocarcinoma | Low-grade IN
+GT2014677,2,1,Polyp
+GT2014692,3,1,Adenocarcinoma
+GT2014699,2,1,High-grade IN
+GT2014733,1,1,Polyp
+GT2014736,3,1,Low-grade IN
+GT2014744,3,1,Adenocarcinoma
+GT2014751,3,2,Low-grade IN | Polyp
+GT2014757,7,2,High-grade IN | Low-grade IN
+GT2014780,8,2,Low-grade IN | Polyp
+GT2014783,5,2,Polyp | Serrated adenoma
+GT2014789,12,3,Adenocarcinoma | Low-grade IN | Polyp
+GT2014792,8,1,Polyp
+GT2014804,3,1,Low-grade IN
+GT2014818,3,1,Adenocarcinoma
+GT2014822,7,2,Adenocarcinoma | Polyp
+GT2014848,2,1,Serrated adenoma
+GT2015023,1,1,Adenocarcinoma
+GT2015103,1,1,Polyp
+GT2015104,1,1,Polyp
+GT2015105,1,1,Adenocarcinoma
+GT2015123,1,1,Adenocarcinoma
+GT2015132,1,1,Low-grade IN
+GT2015138,2,1,Adenocarcinoma
+GT2015140,2,2,Low-grade IN | Polyp
+GT2015141,1,1,Polyp
+GT2015144,2,1,Polyp
+GT2015978,1,1,Adenocarcinoma
+GT2016115,1,1,Polyp
+GT2016757,3,1,Low-grade IN
+GT2016770,2,1,Adenocarcinoma
+GT2016777,1,1,Polyp
+GT2016780,3,1,High-grade IN
+GT2016781,2,1,Adenocarcinoma
+GT2016783,2,1,Low-grade IN
+GT2016788,1,1,Adenocarcinoma
+GT2016791,3,1,Low-grade IN
+GT2016795,3,2,Low-grade IN | Polyp
+GT2016798,1,1,Polyp
+GT2016811,4,1,Low-grade IN
+GT2016827,2,1,Adenocarcinoma
+GT2016836,2,1,Adenocarcinoma
+GT2016841,15,1,Adenocarcinoma
+GT2016846,10,3,Adenocarcinoma | High-grade IN | Low-grade IN
+GT2016847,1,1,Polyp
+GT2016848,5,1,Adenocarcinoma
+GT2016852,2,1,Polyp
+GT2016854,4,1,Polyp
+GT2016855,2,1,Serrated adenoma
+GT2016860,5,1,Low-grade IN
+GT2016864,1,1,Low-grade IN
+GT2016867,2,1,Adenocarcinoma
+GT2016882,4,1,Adenocarcinoma
+GT2016885,11,1,Adenocarcinoma
+GT2016887,5,1,High-grade IN
+GT2016893,9,1,Adenocarcinoma
+GT2016905,1,1,Low-grade IN
+GT2016906,11,1,Adenocarcinoma
+GT2016907,5,1,Normal
+GT2016981,3,1,Low-grade IN
+GT2017148,10,2,Adenocarcinoma | Normal
+GT2017150,4,1,Adenocarcinoma
+GT2017274,1,1,Polyp
+GT2017275,1,1,Polyp
+GT2017282,1,1,Low-grade IN
+GT2017329,1,1,Low-grade IN
+GT2017351,2,2,High-grade IN | Low-grade IN
+GT2017986,1,1,Adenocarcinoma
+GT2017994,4,1,Low-grade IN
+GT2017995,7,1,High-grade IN
+GT2018006,4,1,High-grade IN
+GT2018275,1,1,Low-grade IN
+GT2100009,3,1,Adenocarcinoma
+GT2100011,10,1,Adenocarcinoma
+GT2100092,3,2,Polyp | Serrated adenoma
+GT2100093,9,3,High-grade IN | Low-grade IN | Normal
+GT2100111,4,1,Adenocarcinoma
+GT2100117,4,1,Polyp
+GT2100120,17,2,Adenocarcinoma | High-grade IN
+GT2100144,9,2,Low-grade IN | Normal
+GT2100256,20,2,Adenocarcinoma | Normal
+GT2100275,4,1,Normal
+GT2100276,3,1,Adenocarcinoma
+GT2106134,2,1,Polyp
+GTDC2013013,2,2,High-grade IN | Low-grade IN
+GTDC2100256,3,1,High-grade IN
+GTDC2100276,1,1,Normal
+GTDC2100277,3,1,Adenocarcinoma
+GTDC2100796,5,1,Normal
+GTDC2101366,5,1,Low-grade IN
+GTDC2102188,8,1,Serrated adenoma
+GTDC2102641,4,1,High-grade IN
+GTXC2012096,14,2,Low-grade IN | Normal
+GTXC2012114,7,2,Low-grade IN | Polyp
+GTXC2012151,13,2,Adenocarcinoma | High-grade IN
+GTXC2012436,4,1,High-grade IN
+GTXC2013066,6,1,Polyp
+GTXC2013386,11,1,Adenocarcinoma
+GTXC2013391,11,1,Adenocarcinoma
+GTXC2013520,5,1,Low-grade IN
+GTXC2013528,4,1,Low-grade IN
+GTXC2014065,4,1,Adenocarcinoma
+GTXC2014129,15,2,Low-grade IN | Serrated adenoma
+GTXC2014131,5,1,Adenocarcinoma
+GTXC2014134,1,1,Polyp
+GTXC2014136,1,1,Low-grade IN
+GTXC2014139,22,2,Low-grade IN | Polyp
+GTXC2014144,4,1,Low-grade IN
+GTXC2014146,10,1,Low-grade IN
+GTXC2014151,11,2,High-grade IN | Serrated adenoma
+GTXC2014153,14,2,Adenocarcinoma | Low-grade IN
+GTXC2014165,4,1,Low-grade IN
+GTXC2014173,5,1,Low-grade IN
+GTXC2014183,1,1,Polyp
+GTXC2014184,5,1,Polyp
+GTXC2014192,13,1,Low-grade IN
+GTXC2014194,12,1,Low-grade IN
+GTXC2015335,41,3,Low-grade IN | Polyp | Serrated adenoma
+GTXC2015343,5,1,Low-grade IN
+GTXC2015344,8,1,Adenocarcinoma
+GTXC2015349,14,2,Adenocarcinoma | Polyp
+GTXC2015354,6,1,Adenocarcinoma
+GTXC2015362,30,3,Adenocarcinoma | High-grade IN | Low-grade IN
+GTXC2015371,11,2,Adenocarcinoma | High-grade IN
+GTXC2015381,8,2,Low-grade IN | Polyp
+GTXC2015383,16,1,Low-grade IN
+GTXC2015401,6,1,Adenocarcinoma
+GTXC2015403,4,1,High-grade IN
+GTXC2015407,6,1,Low-grade IN
+GTXC2015413,10,2,Adenocarcinoma | High-grade IN
+GTXC2015417,4,1,Low-grade IN
+GTXC2015422,9,1,Adenocarcinoma
+GTXC2015425,5,1,Low-grade IN
+GTXC2015426,7,1,Adenocarcinoma
+GTXC2100149,3,1,Low-grade IN
+GTXC2100184,3,1,Low-grade IN
+GTXC2100474,5,1,Polyp
+GTXC2100476,4,2,Low-grade IN | Polyp
+GTXC2100708,7,1,Low-grade IN
+GTXC2100714,5,1,Polyp
+GTXC2100728,6,1,Polyp
+GTXC2100732,8,1,Serrated adenoma
+GTXC2100734,1,1,Polyp
+GTXC2100737,7,1,Polyp
+GTXC2100763,8,1,Polyp
+GTXC2100772,9,1,Polyp
+GTXC2100773,11,1,Polyp
+GTXC2100798,9,1,Polyp
+GTXC2102280,8,1,Adenocarcinoma
+GTXC2110125,4,1,Low-grade IN
+GTXC2110128,12,2,High-grade IN | Low-grade IN
+GTXC2110135,17,2,Adenocarcinoma | High-grade IN
+GTXC2110163,3,1,Polyp
+GTXC2110181,7,1,Polyp
+GTXC2110182,2,1,Polyp
+GTXC2110185,7,1,Adenocarcinoma
+GTXC2110187,6,1,High-grade IN
+GTXC2110195,7,1,Low-grade IN
+GTXC2110215,4,1,Polyp
+GTXC2110491,27,1,Polyp
+GTXC2110503,7,1,Polyp
+GTXC2110507,10,1,Polyp
+GTXC2110529,16,1,Polyp
+GTXC2110530,18,1,Polyp
+GTXC2110531,10,1,Polyp
+GTXC2110540,2,1,High-grade IN
+GTXC2110570,7,1,Polyp
+GTXC2110572,7,1,Polyp
+GTXC2110585,7,1,High-grade IN
+GTdc2102643,1,1,Adenocarcinoma
+GTxc2012436,3,1,Adenocarcinoma
+GTxc2012467,3,1,Low-grade IN
+GTxc2012468,6,2,Adenocarcinoma | Low-grade IN
+GTxc2012476,3,1,Polyp
+GTxc2012481,9,3,Adenocarcinoma | Low-grade IN | Polyp
+GTxc2012485,1,1,Polyp
+GTxc2012493,2,1,Low-grade IN
+GTxc2012508,8,3,Adenocarcinoma | High-grade IN | Low-grade IN
+GTxc2012521,6,2,Low-grade IN | Serrated adenoma
+GTxc2012529,4,1,Low-grade IN
+GTxc2012778,4,1,Polyp
+GTxc2012779,8,2,High-grade IN | Low-grade IN
+GTxc2012785,2,1,High-grade IN
+GTxc2012788,2,1,High-grade IN
+GTxc2012789,3,1,Polyp
+GTxc2012796,11,2,Low-grade IN | Polyp
+GTxc2012801,3,1,Low-grade IN
+GTxc2012803,6,1,Low-grade IN
+GTxc2012822,8,1,Adenocarcinoma
+GTxc2012827,14,2,Low-grade IN | Normal
+GTxc2012829,10,2,High-grade IN | Low-grade IN
+GTxc2012839,4,1,Low-grade IN
+GTxc2012852,5,1,Low-grade IN
+GTxc2012888,24,1,Adenocarcinoma
+GTxc2012896,5,1,Low-grade IN
+GTxc2012902,13,1,Adenocarcinoma
+GTxc2012904,4,1,Low-grade IN
+GTxc2012915,5,1,Low-grade IN
+GTxc2012921,6,1,Low-grade IN
+GTxc2012930,4,1,Low-grade IN
+GTxc2012943,9,1,Adenocarcinoma
+GTxc2012946,16,2,Adenocarcinoma | Low-grade IN
+GTxc2012949,1,1,Low-grade IN
+GTxc2012952,4,1,Low-grade IN
+GTxc2012957,1,1,Low-grade IN
+GTxc2012958,3,1,Polyp
+GTxc2012960,3,1,Low-grade IN
+GTxc2012962,14,1,Adenocarcinoma
+GTxc2012967,8,1,Low-grade IN
+GTxc2012970,2,1,Polyp
+GTxc2012972,2,1,Low-grade IN
+GTxc2012982,10,1,Low-grade IN
+GTxc2012983,5,2,Low-grade IN | Polyp
+GTxc2012984,4,1,Low-grade IN
+GTxc2012986,13,1,Low-grade IN
+GTxc2012990,9,1,Adenocarcinoma
+GTxc2012996,27,2,Adenocarcinoma | High-grade IN
+GTxc2013005,5,1,Low-grade IN
+GTxc2013010,11,1,Adenocarcinoma
+GTxc2013026,5,1,Polyp
+GTxc2013066,3,1,Low-grade IN
+GTxc2013391,3,1,Polyp
+GTxc2013392,7,2,Adenocarcinoma | Low-grade IN
+GTxc2013393,9,1,Low-grade IN
+GTxc2013400,11,1,Low-grade IN
+GTxc2013405,3,1,Polyp
+GTxc2013434,3,1,Low-grade IN
+GTxc2013439,4,1,Low-grade IN
+GTxc2013450,6,1,Adenocarcinoma
+GTxc2013451,6,1,Adenocarcinoma
+GTxc2013458,7,2,Low-grade IN | Polyp
+GTxc2013484,2,1,Polyp
+GTxc2013486,6,1,Low-grade IN
+GTxc2013489,7,1,Adenocarcinoma
+GTxc2013490,3,1,Low-grade IN
+GTxc2013495,5,1,Low-grade IN
+GTxc2013496,37,1,Adenocarcinoma
+GTxc2013501,15,2,High-grade IN | Low-grade IN
+GTxc2013509,3,1,Polyp
+GTxc2013512,43,1,Adenocarcinoma
+GTxc2013935,4,1,Polyp
+GTxc2013942,9,2,Low-grade IN | Polyp
+GTxc2013943,3,2,Low-grade IN | Polyp
+GTxc2013946,2,1,Low-grade IN
+GTxc2013948,4,1,Polyp
+GTxc2013953,5,1,Polyp
+GTxc2013961,3,1,Adenocarcinoma
+GTxc2013962,3,1,Adenocarcinoma
+GTxc2013964,4,1,Adenocarcinoma
+GTxc2013965,9,1,Adenocarcinoma
+GTxc2013978,3,1,Polyp
+GTxc2013980,8,1,Adenocarcinoma
+GTxc2013987,4,1,High-grade IN
+GTxc2013996,2,1,Polyp
+GTxc2014030,4,1,Low-grade IN
+GTxc2014065,10,1,Adenocarcinoma
+GTxc2014069,4,1,Serrated adenoma
+GTxc2014077,7,1,Polyp
+GTxc2014080,12,1,Low-grade IN
+GTxc2014093,6,1,Low-grade IN
+GTxc2014094,10,1,Low-grade IN
+GTxc2014097,3,1,Polyp
+GTxc2014102,5,1,Low-grade IN
+GTxc2014103,5,1,Polyp
+GTxc2014106,8,1,Low-grade IN
+GTxc2014123,8,1,Polyp
+GTxc2014129,4,1,Low-grade IN
+GTxc2014131,15,2,Adenocarcinoma | High-grade IN
+GTxc2014132,5,1,Low-grade IN
+GTxc2014134,1,1,Polyp
+GTxc2014136,3,1,Low-grade IN
+GTxc2014144,31,3,Adenocarcinoma | High-grade IN | Low-grade IN
+GTxc2014153,3,1,Polyp
+GTxc2014165,4,1,Low-grade IN
+GTxc2014183,3,1,Polyp
+GTxc2102521,6,1,Polyp
+GTxc2110131,4,1,Low-grade IN
+GTxc2110164,2,1,Polyp
+GTxc2110172,4,1,Polyp
+GTxc2110176,11,3,Adenocarcinoma | Low-grade IN | Polyp
