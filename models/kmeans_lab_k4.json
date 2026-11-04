@@ -1,0 +1,79 @@
+{
+  "method": "lab_kmeans",
+  "estimator": "sklearn.cluster.MiniBatchKMeans",
+  "fit_subset": "train",
+  "color_conversion": "RGB float32 in [0,1] -> COLOR_RGB2LAB",
+  "channel_order": [
+    "L*",
+    "a*",
+    "b*"
+  ],
+  "feature_scaling": "none",
+  "assignment_rule": "nearest center by squared Euclidean distance",
+  "cluster_centers": [
+    [
+      55.61946105957031,
+      30.646650314331055,
+      -28.488025665283203
+    ],
+    [
+      21.238140106201172,
+      41.312660217285156,
+      -50.16566848754883
+    ],
+    [
+      46.51409149169922,
+      54.84356689453125,
+      -55.61201095581055
+    ],
+    [
+      81.7219467163086,
+      5.03012228012085,
+      -6.187066555023193
+    ]
+  ],
+  "cluster_centers_dtype": "float32",
+  "foreground_clusters": null,
+  "fit_parameters": {
+    "batch_size": 4096,
+    "compute_labels": true,
+    "init": "k-means++",
+    "init_size": 12288,
+    "max_iter": 100,
+    "max_no_improvement": 20,
+    "n_clusters": 4,
+    "n_init": 10,
+    "random_state": 42,
+    "reassignment_ratio": 0.01,
+    "tol": 0.0,
+    "verbose": 0
+  },
+  "training_pixel_count": 1535000,
+  "sampling": {
+    "training_images": 1535,
+    "pixels_per_image": 1000,
+    "seed": 42,
+    "opencv_version": "4.14.0",
+    "numpy_version": "2.5.4"
+  },
+  "split_sha256": "ceeba8e282f77cdb78a9675618b3dcb6729fbc2339e2d112085a11720fc9108d",
+  "sample_cache_sha256": "5e43ede32412fe6db2ae0d5599de84494d58d6a0a672c2524510439ad5fa076d",
+  "versions": {
+    "python": "3.14.0",
+    "scikit_learn": "1.9.1",
+    "scipy": "1.18.1",
+    "numpy": "2.5.4"
+  },
+  "fit_diagnostics": {
+    "inertia": 482858592.0,
+    "mean_squared_lab_distance": 314.56585798045603,
+    "n_iter": 1,
+    "n_steps": 229,
+    "assigned_pixel_counts": [
+      444841,
+      477998,
+      387052,
+      225109
+    ]
+  }
+}

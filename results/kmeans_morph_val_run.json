@@ -1,0 +1,26 @@
+{
+  "evaluation_subset": "val",
+  "image_count": 372,
+  "result_row_count": 3720,
+  "reference_threshold": 128,
+  "aggregation": "Mean image score within each category, then equal-weight mean across categories.",
+  "split_sha256": "ceeba8e282f77cdb78a9675618b3dcb6729fbc2339e2d112085a11720fc9108d",
+  "model_sha256": {
+    "k2": "026a125a21a32bfef19fd21bc98e8d37ff38842dd67eb078bcf68c1cb0f1bdf6",
+    "k3": "d50bcf44f4ec87b695490e4477035218a4945b915f2b33fb1906e18c84671eff",
+    "k4": "0531165e8f29433738e83ae583708f00b4b595fec22885ad753118ffff2b4933"
+  },
+  "prediction_helper_sha256": "42a0a3a5c84689f7f3f221d80e27a28ee3949e4d3e3a64c1c553fc1513503299",
+  "postprocessing_helper_sha256": "b83e549480fec3f8373eb7d95db6a8194d53795d91611797f0125fc6c673f8ca",
+  "variants": {
+    "M0": "raw prediction",
+    "M1": "retain components >=16 pixels; connectivity=8",
+    "M2": "M1, opening then closing; 3x3 cross; one iteration each; BORDER_REPLICATE"
+  },
+  "versions": {
+    "python": "3.14.0",
+    "opencv": "4.14.0",
+    "numpy": "2.5.4",
+    "pillow": "13.0.0"
+  }
+}
