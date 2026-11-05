@@ -1,0 +1,41 @@
+{
+  "schema_version": "provenance-migration-v1",
+  "checkpoint_commit": "8192e3e09384b05fa760104436f3a2e226380ac3",
+  "portable_source_scheme": "utf8-lf-v1",
+  "frozen_split_policy": "raw_bytes_authoritative_never_normalized",
+  "frozen_split_sha256": "ceeba8e282f77cdb78a9675618b3dcb6729fbc2339e2d112085a11720fc9108d",
+  "legacy_helpers": {
+    "kmeans_prediction": {
+      "legacy_path": "kmeans_prediction.py",
+      "legacy_function": "kmeans_prediction.nearest_clusters",
+      "recorded_crlf_sha256": "42a0a3a5c84689f7f3f221d80e27a28ee3949e4d3e3a64c1c553fc1513503299",
+      "verified_utf8_lf_v1_sha256": "d66c08b08240eb2ad9e19516b0d0d29f70b10f68f621fa634fa87ffaf9b3272c",
+      "migrated_module": "src/ebhi_dip/segmentation.py",
+      "migrated_function": "ebhi_dip.segmentation.nearest_clusters",
+      "migrated_module_utf8_lf_v1_sha256": "128cb8c94b45cf88a717754fc3d96116112f09b761d51803a3f75bdb70a510a7",
+      "referenced_by_artifacts": [
+        "models/kmeans_lab_k2_mapped.json",
+        "models/kmeans_lab_k3_mapped.json",
+        "models/kmeans_lab_k4_mapped.json",
+        "results/kmeans_morph_val_run.json"
+      ]
+    },
+    "postprocessing": {
+      "legacy_path": "postprocessing.py",
+      "legacy_function": "postprocessing.morphology_variants",
+      "recorded_crlf_sha256": "b83e549480fec3f8373eb7d95db6a8194d53795d91611797f0125fc6c673f8ca",
+      "verified_utf8_lf_v1_sha256": "767318f20709eb93acd5c2c5c5f011ca9de9710e2976c04e47642d3f2233cd4f",
+      "migrated_module": "src/ebhi_dip/segmentation.py",
+      "migrated_function": "ebhi_dip.segmentation.morphology_variants",
+      "migrated_module_utf8_lf_v1_sha256": "128cb8c94b45cf88a717754fc3d96116112f09b761d51803a3f75bdb70a510a7",
+      "referenced_by_artifacts": [
+        "results/kmeans_morph_val_run.json"
+      ]
+    }
+  },
+  "parity_verification": {
+    "nearest_clusters": "float64 squared Euclidean distance with deterministic lowest_cluster_id tie-break; bit-identical labels against legacy helper on controlled fixtures and representative training images.",
+    "morphology_variants": "M0 raw, M1 8-connected area >= 16, M2 3x3 cross opening then closing (1 iteration each, BORDER_REPLICATE); bit-identical masks against legacy helper.",
+    "validation_scores": "Recomputed Dice and IoU on selected validation cases match saved CSV values within atol=1e-10 (observed max diff 0.0)."
+  }
+}

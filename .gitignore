@@ -2,3 +2,9 @@
 data/raw/
 __pycache__/
 data/processed/
+.pytest_cache/
+.ipynb_checkpoints/
+build/
+dist/
+*.egg-info/
+src/*.egg-info/

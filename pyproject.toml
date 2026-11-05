@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ebhi-dip"
+version = "0.1.0"
+description = "Classical digital image processing segmentation and visual case analysis for EBHI-SEG histopathology images."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib>=3.8",
+    "numpy>=2.0",
+    "opencv-python>=4.10",
+    "pandas>=2.2",
+    "pillow>=10.0",
+    "scikit-learn>=1.5",
+    "scipy>=1.13",
+]
+
+[project.optional-dependencies]
+notebooks = [
+    "ipykernel>=6.29",
+    "ipywidgets>=8.1",
+    "jinja2>=3.1",
+    "nbclient>=0.10",
+    "nbconvert>=7.16",
+    "nbformat>=5.10",
+]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
