@@ -17,6 +17,7 @@ EXPECTED_NOTEBOOKS = (
     "04_lab_kmeans.ipynb",
     "05_segmentation_comparison.ipynb",
     "05b_segmentation_case_analysis.ipynb",
+    "06_feature_extraction.ipynb",
 )
 
 
