@@ -3,6 +3,7 @@
 Feature set A (10): Lab channel mean/population-std and four averaged GLCM properties.
 Feature set B (19): four global mask descriptors plus mean/std/median of five region measures.
 Feature set C (29): concatenation A + B.
+Segmented sets A_seg (10) and C_seg (29): appearance computed inside one predicted mask.
 """
 
 from __future__ import annotations
@@ -71,6 +72,12 @@ MORPHOLOGY_FEATURE_NAMES: tuple[str, ...] = (
 )
 
 FEATURE_NAMES: tuple[str, ...] = APPEARANCE_FEATURE_NAMES + MORPHOLOGY_FEATURE_NAMES
+SEGMENTED_APPEARANCE_FEATURE_NAMES: tuple[str, ...] = tuple(
+    f"seg_{name}" for name in APPEARANCE_FEATURE_NAMES
+)
+SEGMENTED_FEATURE_NAMES: tuple[str, ...] = (
+    SEGMENTED_APPEARANCE_FEATURE_NAMES + MORPHOLOGY_FEATURE_NAMES
+)
 
 GLCM_LEVELS: int = 16
 GLCM_DISTANCES: tuple[int, ...] = (1, 2)
@@ -104,6 +111,18 @@ class FeatureTables:
     split_sha256: str
 
 
+@dataclass(frozen=True)
+class SegmentedFeatureTables:
+    """Container for appearance features restricted to a frozen predicted mask."""
+
+    appearance: pd.DataFrame
+    combined: pd.DataFrame
+    diagnostics: pd.DataFrame
+    method: str
+    splits: tuple[str, ...]
+    split_sha256: str
+
+
 def _validate_rgb_image(image_rgb: np.ndarray) -> np.ndarray:
     rgb = np.asarray(image_rgb)
     if rgb.dtype != np.uint8 or rgb.ndim != 3 or rgb.shape[2] != 3:
@@ -126,20 +145,67 @@ def _validate_binary_mask(mask: np.ndarray) -> np.ndarray:
     return arr
 
 
-def extract_appearance_features(image_rgb: np.ndarray) -> dict[str, float]:
-    """Compute the 10 appearance features from the original RGB image."""
-    rgb = _validate_rgb_image(image_rgb)
-    lab = rgb_to_lab(rgb)
+def _quantize_gray(gray: np.ndarray) -> np.ndarray:
+    """Quantize uint8 grayscale to the fixed GLCM level range."""
+    return np.clip(
+        gray.astype(np.int32) // (256 // GLCM_LEVELS),
+        0,
+        GLCM_LEVELS - 1,
+    ).astype(np.uint8)
+
+
+def _glcm_properties(matrix: np.ndarray) -> dict[str, float]:
+    """Compute the four averaged GLCM properties with finite fallbacks."""
+    features: dict[str, float] = {}
+    for prop in GLCM_PROPERTIES:
+        value = float(np.mean(graycoprops(matrix, prop)))
+        features[f"glcm_{prop}"] = value if np.isfinite(value) else 0.0
+    return features
+
+
+def _masked_glcm(quantized: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """Build a normalized GLCM from pairs whose two endpoints are inside the mask.
+
+    A sentinel level is assigned to background pixels. The sentinel row and column are
+    then discarded, leaving only foreground-foreground pairs. This preserves the exact
+    offset conventions and symmetric/normalized behavior of ``skimage.graycomatrix``.
+    """
+    sentinel = GLCM_LEVELS
+    background_level = np.uint8(sentinel)
+    masked = np.where(mask, quantized, background_level).astype(np.uint8)
+    matrix = graycomatrix(
+        masked,
+        distances=list(GLCM_DISTANCES),
+        angles=list(GLCM_ANGLES),
+        levels=GLCM_LEVELS + 1,
+        symmetric=True,
+        normed=False,
+    )
+    foreground = matrix[:GLCM_LEVELS, :GLCM_LEVELS, :, :].astype(np.float64)
+    sums = foreground.sum(axis=(0, 1), keepdims=True)
+    sums[sums == 0.0] = 1.0
+    return foreground / sums
+
+
+def _appearance_from_lab_and_glcm(
+    lab: np.ndarray,
+    glcm_features: dict[str, float],
+) -> dict[str, float]:
     features: dict[str, float] = {}
     for channel_index, channel_name in enumerate(("l", "a", "b")):
         values = lab[..., channel_index].astype(np.float64)
         features[f"lab_{channel_name}_mean"] = float(values.mean())
         features[f"lab_{channel_name}_std"] = float(values.std(ddof=0))
+    features.update(glcm_features)
+    return {name: float(features[name]) for name in APPEARANCE_FEATURE_NAMES}
 
+
+def extract_appearance_features(image_rgb: np.ndarray) -> dict[str, float]:
+    """Compute the 10 appearance features from the original RGB image."""
+    rgb = _validate_rgb_image(image_rgb)
+    lab = rgb_to_lab(rgb)
     gray = rgb_to_gray(rgb)
-    quantized = np.clip(gray.astype(np.int32) // (256 // GLCM_LEVELS), 0, GLCM_LEVELS - 1).astype(
-        np.uint8
-    )
+    quantized = _quantize_gray(gray)
     matrix = graycomatrix(
         quantized,
         distances=list(GLCM_DISTANCES),
@@ -148,11 +214,34 @@ def extract_appearance_features(image_rgb: np.ndarray) -> dict[str, float]:
         symmetric=True,
         normed=True,
     )
-    for prop in GLCM_PROPERTIES:
-        value = float(np.mean(graycoprops(matrix, prop)))
-        features[f"glcm_{prop}"] = value if np.isfinite(value) else 0.0
+    return _appearance_from_lab_and_glcm(lab, _glcm_properties(matrix))
 
-    return {name: float(features[name]) for name in APPEARANCE_FEATURE_NAMES}
+
+def extract_masked_appearance_features(image_rgb: np.ndarray, mask: np.ndarray) -> dict[str, float]:
+    """Compute appearance features using only pixels inside a predicted binary mask."""
+    rgb = _validate_rgb_image(image_rgb)
+    mask_arr = _validate_binary_mask(mask)
+    if mask_arr.shape != rgb.shape[:2]:
+        raise ValueError(
+            f"Mask shape {mask_arr.shape} does not match image shape {rgb.shape[:2]}."
+        )
+
+    features = {name: 0.0 for name in SEGMENTED_APPEARANCE_FEATURE_NAMES}
+    if not mask_arr.any():
+        return features
+
+    lab = rgb_to_lab(rgb)
+    foreground_lab = lab[mask_arr].astype(np.float64)
+
+    gray = rgb_to_gray(rgb)
+    quantized = _quantize_gray(gray)
+    matrix = _masked_glcm(quantized, mask_arr)
+    glcm_features = _glcm_properties(matrix)
+
+    base = _appearance_from_lab_and_glcm(foreground_lab, glcm_features)
+    for name, value in base.items():
+        features[f"seg_{name}"] = value
+    return {name: float(features[name]) for name in SEGMENTED_APPEARANCE_FEATURE_NAMES}
 
 
 def _region_measurements(mask: np.ndarray) -> tuple[dict[str, np.ndarray], dict[str, object]]:
@@ -386,6 +475,69 @@ def _process_record(
     return metadata, appearance, morphologies, diagnostics
 
 
+def _process_segmented_record(
+    record: dict[str, object],
+) -> tuple[
+    dict[str, object],
+    dict[str, float],
+    dict[str, float],
+    dict[str, object],
+]:
+    root = _WORKER_STATE["project_root"]
+    methods = _WORKER_STATE["methods"]
+    artifacts = _WORKER_STATE["artifacts"]
+    if not isinstance(root, Path) or not isinstance(methods, tuple) or not isinstance(artifacts, dict):
+        raise RuntimeError("Segmented feature extraction worker was not initialized.")
+    if len(methods) != 1:
+        raise RuntimeError("Segmented feature extraction requires exactly one method.")
+    method = methods[0]
+
+    image_path = resolve_manifest_path(
+        root,
+        str(record["image_path"]),
+        data_root_override=_WORKER_STATE["data_root_override"],
+    )
+    image_rgb = load_rgb(image_path)
+    metadata = {
+        "sample_id": str(record["sample_id"]),
+        "category": str(record["category"]),
+        "group_id": str(record["group_id"]),
+        "split": str(record["split"]),
+    }
+    mask = _predict_variants(image_rgb, artifacts)[method]
+    appearance = extract_masked_appearance_features(image_rgb, mask)
+    morphology, diagnostics = _morphology_payload(mask)
+    return metadata, appearance, morphology, diagnostics
+
+
+def _select_feature_subset(
+    root: Path,
+    splits: Sequence[str],
+    sample_ids: Sequence[str] | None,
+) -> tuple[tuple[str, ...], pd.DataFrame]:
+    split_tuple = tuple(splits)
+    if not split_tuple:
+        raise ValueError("At least one split is required.")
+    split_df = load_split_manifest(root, verify=False)
+    unknown_splits = sorted(set(split_tuple) - set(split_df["split"].unique()))
+    if unknown_splits:
+        raise ValueError(f"Unknown split labels: {unknown_splits}.")
+
+    subset = split_df.loc[split_df["split"].isin(split_tuple)].copy()
+    if sample_ids is not None:
+        requested = list(dict.fromkeys(str(value) for value in sample_ids))
+        subset = subset.loc[subset["sample_id"].isin(requested)]
+        missing = sorted(set(requested) - set(subset["sample_id"]))
+        if missing:
+            raise KeyError(f"Requested sample_ids not found in the frozen split: {missing[:5]}.")
+    subset = subset.sort_values(
+        ["split", "sample_id"], ascending=True, kind="mergesort"
+    ).reset_index(drop=True)
+    if not subset["pair_status"].eq("paired").all():
+        raise ValueError("Feature extraction requires paired image/reference rows.")
+    return split_tuple, subset
+
+
 def build_feature_tables(
     project_root: str | Path,
     methods: Sequence[str] = DEFAULT_FEATURE_METHODS,
@@ -406,26 +558,7 @@ def build_feature_tables(
     if unknown_methods:
         raise ValueError(f"Unsupported segmentation methods: {unknown_methods}.")
 
-    split_tuple = tuple(splits)
-    if not split_tuple:
-        raise ValueError("At least one split is required.")
-    split_df = load_split_manifest(root, verify=False)
-    unknown_splits = sorted(set(split_tuple) - set(split_df["split"].unique()))
-    if unknown_splits:
-        raise ValueError(f"Unknown split labels: {unknown_splits}.")
-
-    subset = split_df.loc[split_df["split"].isin(split_tuple)].copy()
-    if sample_ids is not None:
-        requested = list(dict.fromkeys(str(value) for value in sample_ids))
-        subset = subset.loc[subset["sample_id"].isin(requested)]
-        missing = sorted(set(requested) - set(subset["sample_id"]))
-        if missing:
-            raise KeyError(f"Requested sample_ids not found in the frozen split: {missing[:5]}.")
-    subset = subset.sort_values(["split", "sample_id"], ascending=True, kind="mergesort").reset_index(
-        drop=True
-    )
-    if not subset["pair_status"].eq("paired").all():
-        raise ValueError("Feature extraction requires paired image/reference rows.")
+    split_tuple, subset = _select_feature_subset(root, splits, sample_ids)
 
     if int(workers) < 1:
         raise ValueError("workers must be at least 1.")
@@ -502,6 +635,109 @@ def build_feature_tables(
         combined=combined,
         diagnostics=diagnostics_df,
         methods=method_tuple,
+        splits=split_tuple,
+        split_sha256=split_sha,
+    )
+
+
+def build_segmented_feature_tables(
+    project_root: str | Path,
+    method: str = PRIMARY_FEATURE_METHOD,
+    splits: Sequence[str] = DEFAULT_FEATURE_SPLITS,
+    data_root_override: str | Path | None = None,
+    sample_ids: Sequence[str] | None = None,
+    progress: Callable[[int, int], None] | None = None,
+    workers: int = 1,
+) -> SegmentedFeatureTables:
+    """Extract A_seg and A_seg+B features using one frozen predicted mask method."""
+    root = Path(project_root).expanduser().resolve()
+    split_sha = verify_frozen_split(root)
+
+    if method not in SUPPORTED_METHODS:
+        raise ValueError(f"Unsupported segmentation method: {method!r}.")
+    split_tuple, subset = _select_feature_subset(root, splits, sample_ids)
+
+    if int(workers) < 1:
+        raise ValueError("workers must be at least 1.")
+    total = len(subset)
+    records = subset.to_dict("records")
+    method_tuple = (method,)
+    data_root_arg = None if data_root_override is None else str(data_root_override)
+
+    appearance_rows: list[dict[str, object]] = []
+    morphology_rows: list[dict[str, object]] = []
+    diagnostics_rows: list[dict[str, object]] = []
+
+    if int(workers) == 1:
+        _init_worker(str(root), data_root_arg, method_tuple)
+        results = map(_process_segmented_record, records)
+        executor = None
+    else:
+        executor = ProcessPoolExecutor(
+            max_workers=int(workers),
+            initializer=_init_worker,
+            initargs=(str(root), data_root_arg, method_tuple),
+        )
+        results = executor.map(
+            _process_segmented_record,
+            records,
+            chunksize=max(1, total // (int(workers) * 8)),
+        )
+
+    try:
+        for position, (metadata, appearance, morphology, diagnostics) in enumerate(
+            results, start=1
+        ):
+            appearance_rows.append({**metadata, **appearance})
+            morphology_rows.append({**metadata, "method": method, **morphology})
+            diagnostics_rows.append({**metadata, "method": method, **diagnostics})
+            if progress is not None:
+                progress(position, total)
+    finally:
+        if executor is not None:
+            executor.shutdown()
+        _WORKER_STATE.clear()
+
+    appearance_df = pd.DataFrame(
+        appearance_rows,
+        columns=[*METADATA_COLUMNS, *SEGMENTED_APPEARANCE_FEATURE_NAMES],
+    )
+    morphology_df = pd.DataFrame(
+        morphology_rows,
+        columns=[*METADATA_COLUMNS, "method", *MORPHOLOGY_FEATURE_NAMES],
+    )
+    combined = appearance_df.merge(
+        morphology_df,
+        on=list(METADATA_COLUMNS),
+        how="inner",
+        validate="one_to_one",
+    )[
+        [
+            *METADATA_COLUMNS,
+            "method",
+            *SEGMENTED_APPEARANCE_FEATURE_NAMES,
+            *MORPHOLOGY_FEATURE_NAMES,
+        ]
+    ]
+
+    diagnostics_columns = [
+        *METADATA_COLUMNS,
+        "method",
+        "is_empty",
+        "component_count",
+        "zero_perimeter_count",
+        "border_component_count",
+        "foreground_pixels",
+        "edge_foreground_pixels",
+        "image_pixels",
+    ]
+    diagnostics_df = pd.DataFrame(diagnostics_rows, columns=diagnostics_columns)
+
+    return SegmentedFeatureTables(
+        appearance=appearance_df,
+        combined=combined,
+        diagnostics=diagnostics_df,
+        method=method,
         splits=split_tuple,
         split_sha256=split_sha,
     )
@@ -615,6 +851,70 @@ def feature_manifest(
         "sample_counts": sample_counts,
         "empty_masks_by_method": empty_by_method,
         "zero_perimeter_components_by_method": zero_perimeter_by_method,
+        "versions": {
+            "python": platform.python_version(),
+            "numpy": np.__version__,
+            "pandas": pd.__version__,
+            "opencv": cv2.__version__,
+            "scipy": scipy.__version__,
+            "scikit_image": skimage.__version__,
+        },
+    }
+
+
+def segmented_feature_manifest(
+    tables: SegmentedFeatureTables,
+    project_root: str | Path,
+) -> dict[str, object]:
+    """Build a JSON-serializable manifest for mask-restricted appearance features."""
+    root = Path(project_root).expanduser().resolve()
+    split_sha = verify_frozen_split(root)
+    if split_sha != tables.split_sha256:
+        raise ValueError("Frozen split checksum changed after segmented feature extraction.")
+
+    diagnostics = tables.diagnostics
+    empty_masks = int(diagnostics["is_empty"].sum())
+    zero_perimeter = int(diagnostics["zero_perimeter_count"].sum())
+    sample_counts = tables.appearance.groupby("split", observed=True).size().astype(int).to_dict()
+
+    return {
+        "schema_version": "segmented-feature-extraction-v1",
+        "source_method": tables.method,
+        "source_mask": "predicted foreground mask from frozen segmentation artifacts; never reference mask",
+        "splits": list(tables.splits),
+        "split_sha256": split_sha,
+        "feature_sets": {
+            "A_seg": list(SEGMENTED_APPEARANCE_FEATURE_NAMES),
+            "B": list(MORPHOLOGY_FEATURE_NAMES),
+            "C_seg": list(SEGMENTED_FEATURE_NAMES),
+        },
+        "appearance_definition": {
+            "color_space": "CIE Lab via OpenCV RGB float32/255 -> COLOR_RGB2LAB",
+            "domain": "pixels where the frozen predicted mask is True",
+            "lab_summary": "mean and population standard deviation over mask pixels",
+            "glcm_levels": GLCM_LEVELS,
+            "glcm_distances": list(GLCM_DISTANCES),
+            "glcm_angles_radians": list(GLCM_ANGLES),
+            "glcm_quantization": "fixed interval gray // 16 over full 0-255 range",
+            "glcm_pair_rule": "both endpoints must lie inside the predicted mask",
+            "glcm_symmetric": True,
+            "glcm_normalized": True,
+            "glcm_aggregation": "mean over the eight distance/angle pairs",
+        },
+        "morphology_definition": {
+            "connectivity": 8,
+            "edge_fraction": "foreground pixels in border-touching components / total foreground",
+            "area_normalization": "component area / image area",
+            "perimeter_normalization": "component perimeter / sqrt(image area)",
+            "circularity": "4*pi*area / perimeter^2; zero when perimeter is zero",
+            "eccentricity": "skimage.measure.regionprops eccentricity",
+            "solidity": "skimage.measure.regionprops solidity",
+            "summaries": ["mean", "population_std", "median"],
+            "empty_mask_policy": "all numeric features zero, mask_is_empty=1",
+        },
+        "sample_counts": sample_counts,
+        "empty_masks": empty_masks,
+        "zero_perimeter_components": zero_perimeter,
         "versions": {
             "python": platform.python_version(),
             "numpy": np.__version__,

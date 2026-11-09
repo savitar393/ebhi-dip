@@ -13,12 +13,17 @@ from ebhi_dip.features import (
     APPEARANCE_FEATURE_NAMES,
     FEATURE_NAMES,
     MORPHOLOGY_FEATURE_NAMES,
+    SEGMENTED_APPEARANCE_FEATURE_NAMES,
+    SEGMENTED_FEATURE_NAMES,
     build_feature_tables,
+    build_segmented_feature_tables,
     extract_appearance_features,
     extract_image_features,
+    extract_masked_appearance_features,
     extract_morphology_features,
     feature_manifest,
     morphology_diagnostics,
+    segmented_feature_manifest,
     validate_feature_table,
 )
 from ebhi_dip.paths import has_raw_dataset
@@ -48,6 +53,39 @@ def test_appearance_rejects_invalid_images() -> None:
         extract_appearance_features(np.zeros((8, 8), dtype=np.uint8))
     with pytest.raises(ValueError, match="uint8 RGB"):
         extract_appearance_features(np.zeros((8, 8, 3), dtype=np.float32))
+
+
+def test_masked_appearance_full_mask_matches_whole_image() -> None:
+    rng = np.random.default_rng(7)
+    image = rng.integers(0, 256, size=(24, 20, 3), dtype=np.uint8)
+    whole = extract_appearance_features(image)
+    masked = extract_masked_appearance_features(image, np.ones((24, 20), dtype=bool))
+    assert tuple(masked) == SEGMENTED_APPEARANCE_FEATURE_NAMES
+    for name, value in whole.items():
+        assert masked[f"seg_{name}"] == pytest.approx(value, abs=1e-12)
+
+
+def test_masked_appearance_excludes_background_and_handles_empty_mask() -> None:
+    image = np.zeros((8, 8, 3), dtype=np.uint8)
+    image[..., 0] = 255
+    mask = np.zeros((8, 8), dtype=bool)
+    mask[2:4, 2:6] = True
+    features = extract_masked_appearance_features(image, mask)
+    assert tuple(features) == SEGMENTED_APPEARANCE_FEATURE_NAMES
+    assert all(np.isfinite(value) for value in features.values())
+    assert features["seg_lab_l_mean"] == pytest.approx(53.2408, abs=1e-3)
+
+    empty = extract_masked_appearance_features(image, np.zeros((8, 8), dtype=bool))
+    assert all(value == 0.0 for value in empty.values())
+
+
+def test_segmented_feature_names_are_distinct_and_complete() -> None:
+    assert len(SEGMENTED_APPEARANCE_FEATURE_NAMES) == 10
+    assert len(SEGMENTED_FEATURE_NAMES) == 29
+    assert not set(SEGMENTED_APPEARANCE_FEATURE_NAMES) & set(APPEARANCE_FEATURE_NAMES)
+    assert set(SEGMENTED_FEATURE_NAMES) == set(SEGMENTED_APPEARANCE_FEATURE_NAMES) | set(
+        MORPHOLOGY_FEATURE_NAMES
+    )
 
 
 def test_morphology_square_metrics_and_edge_fraction() -> None:
@@ -186,5 +224,43 @@ def test_build_feature_tables_parity_with_predict_mask() -> None:
 
     manifest = feature_manifest(tables, REPO_ROOT)
     assert manifest["schema_version"] == "feature-extraction-v1"
+    assert manifest["split_sha256"] == tables.split_sha256
+    assert manifest["sample_counts"] == {"val": 1}
+
+
+@pytest.mark.skipif(not has_raw_dataset(REPO_ROOT), reason="EBHI-SEG raw dataset is unavailable.")
+def test_build_segmented_feature_tables_parity_with_predict_mask() -> None:
+    split_df = load_split_manifest(REPO_ROOT)
+    sample = split_df.loc[split_df["split"].eq("val")].iloc[0]
+    tables = build_segmented_feature_tables(
+        REPO_ROOT,
+        method="k4_M0",
+        splits=("val",),
+        sample_ids=[sample["sample_id"]],
+    )
+
+    assert tables.appearance.shape == (1, 4 + 10)
+    assert tables.combined.shape == (1, 5 + 10 + 19)
+    assert tables.diagnostics.shape[0] == 1
+    validate_feature_table(
+        tables.appearance,
+        feature_names=SEGMENTED_APPEARANCE_FEATURE_NAMES,
+        require_method=False,
+    )
+    validate_feature_table(tables.combined, feature_names=SEGMENTED_FEATURE_NAMES)
+
+    from ebhi_dip.dataset import load_rgb
+    from ebhi_dip.paths import resolve_manifest_path
+
+    image = load_rgb(resolve_manifest_path(REPO_ROOT, sample["image_path"]))
+    mask = predict_mask(image, "k4_M0", REPO_ROOT)
+    expected = extract_masked_appearance_features(image, mask)
+    row = tables.appearance.iloc[0]
+    for name, value in expected.items():
+        assert row[name] == pytest.approx(value, abs=1e-12)
+
+    manifest = segmented_feature_manifest(tables, REPO_ROOT)
+    assert manifest["schema_version"] == "segmented-feature-extraction-v1"
+    assert manifest["source_method"] == "k4_M0"
     assert manifest["split_sha256"] == tables.split_sha256
     assert manifest["sample_counts"] == {"val": 1}
