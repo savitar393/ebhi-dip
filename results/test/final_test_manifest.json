@@ -1,0 +1,68 @@
+{
+  "schema_version": "final-test-evaluation-v1",
+  "evaluation_split": "test",
+  "split_sha256": "ceeba8e282f77cdb78a9675618b3dcb6729fbc2339e2d112085a11720fc9108d",
+  "cohort_counts": {
+    "test_images": 319,
+    "test_groups": 53,
+    "categories": 6,
+    "segmentation_methods_evaluated": 13,
+    "classification_models_evaluated": 12
+  },
+  "bootstrap_protocol": {
+    "resampling_unit": "group_id (53 test groups sampled with replacement)",
+    "n_resamples": 2000,
+    "seed": 42,
+    "confidence_level": 0.95
+  },
+  "primary_segmentation_test_result": {
+    "method": "k4_M0",
+    "val_mean_category_dice": 0.7760519223975249,
+    "test_mean_category_dice": 0.7686547600356283,
+    "test_dice_ci95": [
+      0.7574618877607526,
+      0.7859341061296526
+    ],
+    "val_mean_category_iou": 0.6426888567491436,
+    "test_mean_category_iou": 0.6351100478550271,
+    "test_delta_dice_vs_control": 0.00993712778603395
+  },
+  "primary_classification_test_result": {
+    "model_id": "svm_k4_M0_selected",
+    "segmentation_method": "k4_M0",
+    "feature_set": "C",
+    "val_macro_f1": 0.3624558335849053,
+    "test_macro_f1": 0.35069864202991136,
+    "test_macro_f1_ci95": [
+      0.25452799623489275,
+      0.41705709177771955
+    ],
+    "val_balanced_accuracy": 0.34860432371802497,
+    "test_balanced_accuracy": 0.3313256885649984,
+    "val_accuracy": 0.543010752688172,
+    "test_accuracy": 0.4827586206896552
+  },
+  "best_comparator_classification_test_result": {
+    "model_id": "svm_otsu_M2_C",
+    "segmentation_method": "otsu_M2",
+    "feature_set": "C",
+    "val_macro_f1": 0.4587288350641074,
+    "test_macro_f1": 0.4117034201265127,
+    "test_macro_f1_ci95": [
+      0.3435437126530675,
+      0.4616118205154355
+    ],
+    "val_balanced_accuracy": 0.45566796865710685,
+    "test_balanced_accuracy": 0.4043520470064606,
+    "val_accuracy": 0.6236559139784946,
+    "test_accuracy": 0.5924764890282131
+  },
+  "versions": {
+    "python": "3.14.0",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "opencv": "4.14.0",
+    "pillow": "13.0.0",
+    "scikit_learn": "1.9.1"
+  }
+}

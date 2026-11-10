@@ -1,0 +1,121 @@
+{
+  "schema_version": "segmentation-selection-v1",
+  "selection_split": "val",
+  "split_sha256": "ceeba8e282f77cdb78a9675618b3dcb6729fbc2339e2d112085a11720fc9108d",
+  "cohort_counts": {
+    "train_images": 1535,
+    "train_groups": 247,
+    "val_images": 372,
+    "val_groups": 53,
+    "test_images_held_out": 319,
+    "test_groups_held_out": 53
+  },
+  "selection_rule": "mean_category_dice (4 decimals) -> mean_category_iou (4 decimals) -> fewer morphology stages -> fewer clusters",
+  "primary_method": "k4_M0",
+  "comparators": [
+    "otsu_M0",
+    "otsu_M2",
+    "k4_M0",
+    "k4_M1"
+  ],
+  "negative_control": "all_foreground",
+  "validation_summary": {
+    "otsu_M0": {
+      "mean_category_dice": 0.7232237514968882,
+      "mean_category_iou": 0.5788427497390652,
+      "delta_dice_vs_control": -0.05344141763434396,
+      "delta_iou_vs_control": -0.06887197815447121
+    },
+    "otsu_M2": {
+      "mean_category_dice": 0.7287974292021654,
+      "mean_category_iou": 0.5885966665898918,
+      "delta_dice_vs_control": -0.04786773992906679,
+      "delta_iou_vs_control": -0.05911806130364461
+    },
+    "k4_M0": {
+      "mean_category_dice": 0.7760519223975249,
+      "mean_category_iou": 0.6426888567491436,
+      "delta_dice_vs_control": -0.0006132467337073289,
+      "delta_iou_vs_control": -0.005025871144392902
+    },
+    "k4_M1": {
+      "mean_category_dice": 0.7759653160667144,
+      "mean_category_iou": 0.6425881719496034,
+      "delta_dice_vs_control": -0.000699853064517808,
+      "delta_iou_vs_control": -0.0051265559439330755
+    },
+    "all_foreground": {
+      "mean_category_dice": 0.7766651691312322,
+      "mean_category_iou": 0.6477147278935365,
+      "delta_dice_vs_control": 0.0,
+      "delta_iou_vs_control": 0.0
+    }
+  },
+  "downstream_classification_lock": {
+    "primary_track": {
+      "segmentation_method": "k4_M0",
+      "feature_sets": [
+        "A",
+        "B",
+        "C"
+      ],
+      "selected_model_id": "svm_k4_M0_selected",
+      "selected_model_file": "models/svm_k4_M0_selected.json",
+      "selected_feature_set": "C",
+      "kernel": "rbf",
+      "C": 10.0,
+      "gamma": "0.01",
+      "class_weight": "none",
+      "val_macro_f1": 0.3624558335849053,
+      "val_balanced_accuracy": 0.34860432371802497,
+      "val_accuracy": 0.543010752688172
+    },
+    "pre_registered_sensitivity_tracks": {
+      "segmented_appearance": {
+        "segmentation_method": "k4_M0",
+        "feature_sets": [
+          "A_seg",
+          "C_seg"
+        ],
+        "model_files": [
+          "models/svm_k4_M0_A_seg.json",
+          "models/svm_k4_M0_C_seg.json"
+        ]
+      },
+      "segmentation_comparators": {
+        "methods": [
+          "otsu_M0",
+          "otsu_M2",
+          "k4_M0",
+          "k4_M1"
+        ],
+        "feature_sets": [
+          "B",
+          "C"
+        ],
+        "spec": "primary_tuned_spec (rbf, C=10.0, gamma=0.01, class_weight=none)",
+        "best_validation_comparator_method": "otsu_M2",
+        "best_validation_comparator_model_file": "models/svm_otsu_M2_C.json",
+        "model_files": [
+          "models/svm_otsu_M0_B.json",
+          "models/svm_otsu_M0_C.json",
+          "models/svm_otsu_M2_B.json",
+          "models/svm_otsu_M2_C.json",
+          "models/svm_k4_M1_B.json",
+          "models/svm_k4_M1_C.json"
+        ]
+      }
+    }
+  },
+  "input_artifact_sha256": {
+    "split_manifest": "ceeba8e282f77cdb78a9675618b3dcb6729fbc2339e2d112085a11720fc9108d",
+    "otsu_config": "dcd8b0867f50f10912fcf5ddd993f68f3c7de471049b29bfca157f6715a99fda",
+    "kmeans_k2_model": "026a125a21a32bfef19fd21bc98e8d37ff38842dd67eb078bcf68c1cb0f1bdf6",
+    "kmeans_k3_model": "d50bcf44f4ec87b695490e4477035218a4945b915f2b33fb1906e18c84671eff",
+    "kmeans_k4_model": "0531165e8f29433738e83ae583708f00b4b595fec22885ad753118ffff2b4933",
+    "otsu_morph_val": "17f24293a33b1fefe78ab60481baafadfdd119c4c4c88c8dc5add80ca99a73ce",
+    "kmeans_morph_val": "8a30172c8d2d90b453e74e2c57915e35341400e44af32cc107a2cd960cec38dc",
+    "kmeans_morph_val_run": "5ecd034b88d84ecab74bd71353b79fca45c3ec1339b0936cb74c979d74ac44bd",
+    "classification_manifest": "242f5fba52e78bbee3d9ca23f8963fa349b81556ad1703c76436b43b01709a36"
+  }
+}
