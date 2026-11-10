@@ -67,9 +67,17 @@
   },
   "exported_model_files": [
     "models/svm_k4_M0_A.json",
+    "models/svm_k4_M0_A_seg.json",
     "models/svm_k4_M0_B.json",
     "models/svm_k4_M0_C.json",
-    "models/svm_k4_M0_selected.json"
+    "models/svm_k4_M0_C_seg.json",
+    "models/svm_k4_M0_selected.json",
+    "models/svm_k4_M1_B.json",
+    "models/svm_k4_M1_C.json",
+    "models/svm_otsu_M0_B.json",
+    "models/svm_otsu_M0_C.json",
+    "models/svm_otsu_M2_B.json",
+    "models/svm_otsu_M2_C.json"
   ],
   "artifact_parity_checks": {
     "svm_k4_M0_A_default_rbf": {
@@ -110,6 +118,30 @@
     },
     "svm_k4_M0_C_seg_selected_best": {
       "max_abs_decision_diff": 1.5072387782311125e-12,
+      "exact_prediction_match": true
+    },
+    "svm_otsu_M0_B_primary_tuned_spec": {
+      "max_abs_decision_diff": 7.466027795999253e-12,
+      "exact_prediction_match": true
+    },
+    "svm_otsu_M0_C_primary_tuned_spec": {
+      "max_abs_decision_diff": 3.339550858072471e-12,
+      "exact_prediction_match": true
+    },
+    "svm_otsu_M2_B_primary_tuned_spec": {
+      "max_abs_decision_diff": 6.910028105266974e-12,
+      "exact_prediction_match": true
+    },
+    "svm_otsu_M2_C_primary_tuned_spec": {
+      "max_abs_decision_diff": 3.510081114654895e-12,
+      "exact_prediction_match": true
+    },
+    "svm_k4_M1_B_primary_tuned_spec": {
+      "max_abs_decision_diff": 7.1453953864875075e-12,
+      "exact_prediction_match": true
+    },
+    "svm_k4_M1_C_primary_tuned_spec": {
+      "max_abs_decision_diff": 4.119371510569181e-12,
       "exact_prediction_match": true
     }
   },

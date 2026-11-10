@@ -761,7 +761,7 @@ def run_svm_experiments(
             cat_df.insert(0, "method", primary_method)
             per_cat_frames.append(cat_df)
 
-            if variant_name == "selected_best" and set_name in PRIMARY_FEATURE_SETS:
+            if variant_name == "selected_best":
                 canonical_id = f"svm_{primary_method}_{set_name}"
                 art_canonical = dict(art)
                 art_canonical["model_id"] = canonical_id
@@ -863,23 +863,27 @@ def run_svm_experiments(
                     }
                 )
 
-                if set_name == "C" and spec_label == "primary_tuned_spec" and comp_method != primary_method:
+                if spec_label == "primary_tuned_spec" and comp_method != primary_method:
+                    comp_model_id = f"svm_{comp_method}_{set_name}"
                     art_comp = export_svm_artifact(
-                        model_id=f"svm_{comp_method}_C_primary_tuned_spec",
+                        model_id=comp_model_id,
                         segmentation_method=comp_method,
-                        feature_set="C",
+                        feature_set=set_name,
                         scaler_payload=sc,
                         clf=clf_c,
                         split_sha256=split_sha,
                         validation_metrics=va_m,
                         cv_metrics=cv_m,
                     )
-                    verify_svm_artifact_parity(X_va_raw, clf_c, art_comp)
-                    prediction_frames.append(
-                        _prediction_rows_for_model(
-                            va_c, X_va_raw, art_comp, model_variant="comparator_tuned_spec"
+                    parity_comp = verify_svm_artifact_parity(X_va_raw, clf_c, art_comp)
+                    parity_checks[f"{comp_model_id}_primary_tuned_spec"] = parity_comp
+                    model_artifacts[comp_model_id] = art_comp
+                    if set_name == "C":
+                        prediction_frames.append(
+                            _prediction_rows_for_model(
+                                va_c, X_va_raw, art_comp, model_variant="comparator_tuned_spec"
+                            )
                         )
-                    )
 
     grid_results_df = pd.concat(grid_frames, ignore_index=True)
     selected_summary_df = pd.DataFrame(summary_rows)
