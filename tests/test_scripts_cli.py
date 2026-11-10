@@ -18,7 +18,7 @@ SCRIPTS_DIR = REPO_ROOT / "scripts"
 def test_all_scripts_import_cleanly_without_side_effects() -> None:
     split_sha_before = sha256_bytes(REPO_ROOT / "data/metadata/split_manifest.csv")
     script_paths = sorted(SCRIPTS_DIR.glob("*.py"))
-    assert len(script_paths) == 15
+    assert len(script_paths) == 16
 
     for script_path in script_paths:
         spec = importlib.util.spec_from_file_location(f"_cli_{script_path.stem}", script_path)

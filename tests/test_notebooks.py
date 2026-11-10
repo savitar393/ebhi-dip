@@ -18,6 +18,7 @@ EXPECTED_NOTEBOOKS = (
     "05_segmentation_comparison.ipynb",
     "05b_segmentation_case_analysis.ipynb",
     "06_feature_extraction.ipynb",
+    "07_svm_classification.ipynb",
 )
 
 

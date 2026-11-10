@@ -1,0 +1,134 @@
+{
+  "schema_version": "svm-classification-v1",
+  "primary_segmentation_method": "k4_M0",
+  "comparators": [
+    "otsu_M0",
+    "otsu_M2",
+    "k4_M0",
+    "k4_M1"
+  ],
+  "primary_feature_sets": [
+    "A",
+    "B",
+    "C"
+  ],
+  "sensitivity_feature_sets": [
+    "A_seg",
+    "C_seg"
+  ],
+  "split_sha256": "ceeba8e282f77cdb78a9675618b3dcb6729fbc2339e2d112085a11720fc9108d",
+  "cohort_counts": {
+    "train_images": 1535,
+    "train_groups": 247,
+    "val_images": 372,
+    "val_groups": 53,
+    "test_images_touched": 0
+  },
+  "hyperparameter_grid": {
+    "kernels": [
+      "linear",
+      "rbf"
+    ],
+    "class_weights": [
+      "none",
+      "balanced"
+    ],
+    "C_values": [
+      0.1,
+      1.0,
+      3.0,
+      10.0
+    ],
+    "rbf_gammas": [
+      "scale",
+      "0.01",
+      "0.1"
+    ],
+    "cv_scheme": "5-fold StratifiedGroupKFold on train (group_id)"
+  },
+  "selection_rule": "val_macro_f1 (4 dec) -> val_balanced_accuracy (4 dec) -> val_accuracy (4 dec) -> cv_macro_f1 (4 dec) -> simpler kernel (linear > rbf) -> smaller C",
+  "selected_primary_model": {
+    "model_id": "svm_k4_M0_selected",
+    "source_model_id": "svm_k4_M0_C",
+    "segmentation_method": "k4_M0",
+    "feature_set": "C",
+    "n_features": 29,
+    "kernel": "rbf",
+    "class_weight": "none",
+    "C": 10.0,
+    "gamma": "0.01",
+    "cv_macro_f1": 0.3661497622316796,
+    "cv_balanced_accuracy": 0.3551648552708773,
+    "cv_accuracy": 0.5498371335504886,
+    "val_macro_f1": 0.3624558335849053,
+    "val_balanced_accuracy": 0.34860432371802497,
+    "val_accuracy": 0.543010752688172,
+    "val_weighted_f1": 0.5312874182427797
+  },
+  "exported_model_files": [
+    "models/svm_k4_M0_A.json",
+    "models/svm_k4_M0_B.json",
+    "models/svm_k4_M0_C.json",
+    "models/svm_k4_M0_selected.json"
+  ],
+  "artifact_parity_checks": {
+    "svm_k4_M0_A_default_rbf": {
+      "max_abs_decision_diff": 3.079758670310184e-13,
+      "exact_prediction_match": true
+    },
+    "svm_k4_M0_A_selected_best": {
+      "max_abs_decision_diff": 1.4432899320127035e-13,
+      "exact_prediction_match": true
+    },
+    "svm_k4_M0_B_default_rbf": {
+      "max_abs_decision_diff": 4.923284002700257e-13,
+      "exact_prediction_match": true
+    },
+    "svm_k4_M0_B_selected_best": {
+      "max_abs_decision_diff": 5.99631455600047e-13,
+      "exact_prediction_match": true
+    },
+    "svm_k4_M0_C_default_rbf": {
+      "max_abs_decision_diff": 2.6201263381153694e-13,
+      "exact_prediction_match": true
+    },
+    "svm_k4_M0_C_selected_best": {
+      "max_abs_decision_diff": 3.61666252501891e-12,
+      "exact_prediction_match": true
+    },
+    "svm_k4_M0_A_seg_default_rbf": {
+      "max_abs_decision_diff": 2.575717417130363e-13,
+      "exact_prediction_match": true
+    },
+    "svm_k4_M0_A_seg_selected_best": {
+      "max_abs_decision_diff": 8.139711127341798e-12,
+      "exact_prediction_match": true
+    },
+    "svm_k4_M0_C_seg_default_rbf": {
+      "max_abs_decision_diff": 2.0805579481475434e-13,
+      "exact_prediction_match": true
+    },
+    "svm_k4_M0_C_seg_selected_best": {
+      "max_abs_decision_diff": 1.5072387782311125e-12,
+      "exact_prediction_match": true
+    }
+  },
+  "input_artifact_sha256": {
+    "split_manifest": "ceeba8e282f77cdb78a9675618b3dcb6729fbc2339e2d112085a11720fc9108d",
+    "feature_manifest": "9b19f8013c3514f641464d49188f085155f6b793e3eb5345281e0320c2941f69",
+    "segmented_manifest": "ed6a5373c971a495a4b7d08c18bf996fd3941e3179ed0851503a6215e2c18470",
+    "appearance": "4d7b2c8b8a3c86ff710dfa02d332d304575ea481c6064f5efd5312d5e9991a21",
+    "segmented_appearance_k4_M0": "41a3d127debae126788a774d42855f17fe65840c9fb0df5402c1f523ef85a016",
+    "features_k4_M0_segmented": "291201109e551c52b8ea55aeedcae287bf2f3b2a3efc87567938d943143ad604",
+    "features_otsu_M0": "f2d05d2daeaefdac6627478db45004df011eada9cb578353376e45c4c80bb6f9",
+    "features_otsu_M2": "23b8aef356f3b53bd56e779316d878cf1a688f43af04c4e7132fddc823ad288d",
+    "features_k4_M0": "0a4d1b7eba1db37432442f236ab20e4b6e58cc415c3ff3b38f417619eec664ad",
+    "features_k4_M1": "b5f03627e31cf4f08ee4b30a0b4cd7e8cc706852e48449ce0b899bf39381dea2"
+  },
+  "versions": {
+    "python": "3.14.0",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "scikit_learn": "1.9.1"
+  }
+}
