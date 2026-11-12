@@ -36,6 +36,14 @@ from ebhi_dip.classification import (
 from ebhi_dip.dataset import EXPECTED_CATEGORIES
 from ebhi_dip.features import APPEARANCE_FEATURE_NAMES, COMPARISON_2X3_METHODS
 from ebhi_dip.provenance import sha256_bytes
+from ebhi_dip.strict_cv import (
+    CLASSIFICATION_2X3_STRICT_DIR_REL,
+    MODELS_CV_2X3_STRICT_DIR_REL,
+    compute_val_bootstrap_models_and_contrasts,
+    evaluate_strict_cv_grid,
+    fit_fold_kmeans_k4_mapped,
+    fit_fold_otsu_polarity,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -308,4 +316,185 @@ def test_saved_stage07_2x3_artifacts_leakfree_and_parity() -> None:
         assert np.array_equal(preds, stored_preds["predicted_category"].to_numpy(dtype=object))
         metrics = classification_metrics(va_df["category"], preds)
         assert abs(metrics["macro_f1"] - float(summary_cv.loc[artifact["model_id"], "val_macro_f1"])) < 1e-12
+
+
+def test_fit_fold_otsu_polarity_uses_only_fold_train() -> None:
+    fold_train_df = pd.DataFrame(
+        {
+            "sample_id": ["tr_a1", "tr_a2", "tr_b1", "tr_b2"],
+            "category": ["Adenocarcinoma", "Adenocarcinoma", "Polyp", "Polyp"],
+            "group_id": ["G1", "G1", "G2", "G2"],
+        }
+    )
+    precomputed_dice = pd.DataFrame(
+        {
+            "sample_id": ["tr_a1", "tr_a2", "tr_b1", "tr_b2", "va_holdout_1", "va_holdout_2"],
+            "category": ["Adenocarcinoma", "Adenocarcinoma", "Polyp", "Polyp", "Polyp", "Adenocarcinoma"],
+            "dark_dice": [0.20, 0.25, 0.30, 0.35, 1.00, 1.00],
+            "dark_iou": [0.11, 0.14, 0.18, 0.21, 1.00, 1.00],
+            "bright_dice": [0.85, 0.90, 0.80, 0.88, 0.00, 0.00],
+            "bright_iou": [0.74, 0.82, 0.67, 0.79, 0.00, 0.00],
+        }
+    )
+    fit = fit_fold_otsu_polarity(fold_train_df, REPO_ROOT, precomputed_dice_df=precomputed_dice)
+    assert fit["chosen_polarity"] == "bright"
+    assert fit["n_train_images"] == 4
+    assert fit["n_train_groups"] == 2
+    assert float(fit["bright_mean_category_dice"]) > float(fit["dark_mean_category_dice"])
+
+
+def test_fit_fold_kmeans_k4_mapped_isolated_from_holdout() -> None:
+    fold_train_df = pd.DataFrame(
+        {
+            "sample_id": [f"tr_{i}" for i in range(4)],
+            "image_path": [f"tr_{i}.png" for i in range(4)],
+            "mask_path": [f"tr_{i}_m.png" for i in range(4)],
+            "group_id": ["G1", "G1", "G2", "G2"],
+        }
+    )
+    rng = np.random.default_rng(7)
+    base_colors = [
+        np.array([40, 20, 40], dtype=np.uint8),
+        np.array([120, 40, 120], dtype=np.uint8),
+        np.array([180, 120, 180], dtype=np.uint8),
+        np.array([235, 220, 235], dtype=np.uint8),
+    ]
+    assets: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    for i in range(4):
+        img = np.zeros((32, 32, 3), dtype=np.uint8)
+        ref = np.zeros((32, 32), dtype=bool)
+        for idx, col in enumerate(base_colors):
+            r0, r1 = idx * 8, (idx + 1) * 8
+            noise = rng.integers(-4, 5, size=(8, 32, 3), dtype=np.int16)
+            img[r0:r1] = np.clip(col.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+            if idx < 2:
+                ref[r0:r1] = True
+        assets[f"tr_{i}"] = (img, ref)
+
+    assets["va_holdout"] = (np.full((32, 32, 3), 10, dtype=np.uint8), np.ones((32, 32), dtype=bool))
+    fit_a = fit_fold_kmeans_k4_mapped(
+        fold_train_df, REPO_ROOT, k=4, pixels_per_image=256, seed=42, _preloaded_assets=assets
+    )
+    assets["va_holdout"] = (np.full((32, 32, 3), 250, dtype=np.uint8), np.zeros((32, 32), dtype=bool))
+    fit_b = fit_fold_kmeans_k4_mapped(
+        fold_train_df, REPO_ROOT, k=4, pixels_per_image=256, seed=42, _preloaded_assets=assets
+    )
+    assert fit_a["training_images"] == 4
+    assert fit_a["train_sample_ids_sha256"] == fit_b["train_sample_ids_sha256"]
+    assert fit_a["foreground_clusters"] == fit_b["foreground_clusters"]
+    np.testing.assert_allclose(fit_a["cluster_centers"], fit_b["cluster_centers"], rtol=0.0, atol=0.0)
+
+
+def test_evaluate_strict_cv_grid_is_validation_blind_and_deterministic() -> None:
+    rng = np.random.default_rng(123)
+    y_parts = []
+    X_parts = []
+    for cls_idx, cat in enumerate(EXPECTED_CATEGORIES):
+        y_parts.extend([cat] * 6)
+        X_parts.append(rng.normal(loc=cls_idx * 2.5, scale=0.8, size=(6, 3)))
+    y_train = np.asarray(y_parts, dtype=object)
+    X_base = np.vstack(X_parts)
+    fold_splits = [
+        (np.asarray([i for i in range(36) if i % 3 != f]), np.asarray([i for i in range(36) if i % 3 == f]))
+        for f in range(3)
+    ]
+    fold_mats = [X_base + 0.01 * f for f in range(3)]
+    grid_1, best_1, _ = evaluate_strict_cv_grid(
+        y_train=y_train,
+        fold_splits=fold_splits,
+        fold_feature_matrices=fold_mats,
+        feature_names=("f0", "f1", "f2"),
+        method="otsu_M0",
+        feature_set="B",
+        track="factorial_2x3",
+    )
+    grid_2, best_2, _ = evaluate_strict_cv_grid(
+        y_train=y_train,
+        fold_splits=fold_splits,
+        fold_feature_matrices=fold_mats,
+        feature_names=("f0", "f1", "f2"),
+        method="otsu_M0",
+        feature_set="B",
+        track="factorial_2x3",
+    )
+    assert len(grid_1) == 32
+    assert not any(str(col).startswith("val_") for col in grid_1.columns)
+    assert int(grid_1["is_selected_best"].sum()) == 1
+    assert int(grid_1["is_default_baseline"].sum()) == 1
+    assert best_1 == best_2
+    pd.testing.assert_frame_equal(grid_1, grid_2)
+
+
+def test_saved_stage07_2x3_strict_artifacts_bootstrap_and_parity() -> None:
+    strict_dir = REPO_ROOT / CLASSIFICATION_2X3_STRICT_DIR_REL
+    manifest = json.loads((strict_dir / "classification_2x3_strict_manifest.json").read_text(encoding="utf-8"))
+    audit = json.loads((strict_dir / "fold_upstream_audit.json").read_text(encoding="utf-8"))
+
+    assert manifest["protocol_id"] == "stage07_2x3_strict_fold_aware_val_blind_cv_v3"
+    assert manifest["cohort_counts"]["test_images_touched_in_2x3_strict"] == 0
+    assert manifest["cohort_counts"]["test_labels_accessed_in_2x3_strict"] is False
+    assert manifest["preserved_v1_classification_manifest_sha256"] == sha256_bytes(
+        REPO_ROOT / "results/classification/classification_manifest.json"
+    )
+    assert manifest["preserved_v2_classification_manifest_sha256"] == sha256_bytes(
+        REPO_ROOT / CLASSIFICATION_2X3_DIR_REL / "classification_2x3_manifest.json"
+    )
+
+    assert len(audit["folds"]) == 5
+    assert audit["otsu_fold_invariance_all_dark"] is True
+    assert all(bool(f["group_id_disjoint"]) and bool(f["sample_id_disjoint"]) for f in audit["folds"])
+
+    grid_df = pd.read_csv(strict_dir / "svm_2x3_strict_grid_results.csv")
+    summary_df = pd.read_csv(strict_dir / "svm_2x3_strict_selected_summary.csv")
+    pred_df = pd.read_csv(strict_dir / "svm_2x3_strict_val_predictions.csv")
+    boot_models_df = pd.read_csv(strict_dir / "svm_2x3_strict_val_bootstrap_models.csv")
+
+    assert len(grid_df) == 15 * 32
+    assert not any(str(col).startswith("val_") for col in grid_df.columns)
+    assert len(summary_df) == 15 * 2
+    assert set(pred_df["split"]) == {"val"}
+
+    re_boot_models, _ = compute_val_bootstrap_models_and_contrasts(pred_df, n_resamples=2000, seed=42)
+    np.testing.assert_allclose(
+        re_boot_models["val_macro_f1_ci95_low"].to_numpy(),
+        boot_models_df["val_macro_f1_ci95_low"].to_numpy(),
+        rtol=0.0,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        re_boot_models["val_macro_f1_ci95_high"].to_numpy(),
+        boot_models_df["val_macro_f1_ci95_high"].to_numpy(),
+        rtol=0.0,
+        atol=1e-12,
+    )
+
+    _, val_app, _ = load_shared_appearance_frame(REPO_ROOT)
+    _, val_seg, _ = load_classification_feature_frame(REPO_ROOT, method="k4_M0", segmented=True)
+    val_frames = {m: load_classification_feature_frame(REPO_ROOT, method=m, segmented=False)[1] for m in COMPARISON_2X3_METHODS}
+    summary_cv = summary_df.loc[summary_df["model_variant"].eq("cv_selected")].set_index("model_id")
+
+    assert len(manifest["exported_model_files"]) == 15
+    for rel_path in manifest["exported_model_files"]:
+        model_path = REPO_ROOT / rel_path
+        assert model_path.parent == REPO_ROOT / MODELS_CV_2X3_STRICT_DIR_REL
+        artifact = load_svm_artifact(model_path)
+        assert artifact.get("cv_protocol") == "5fold_stratified_group_kfold_strict_fold_aware_upstream"
+        method = str(artifact["segmentation_method"])
+        set_name = str(artifact["feature_set"])
+        cols = feature_columns_for_set(set_name)
+        va_df = (
+            val_app
+            if method == SHARED_APPEARANCE_METHOD
+            else (val_seg if set_name in ("A_seg", "C_seg") else val_frames[method])
+        )
+        preds, _, _ = predict_from_svm_artifact(va_df[list(cols)].to_numpy(dtype=np.float64), artifact)
+        stored_preds = (
+            pred_df.loc[pred_df["model_id"].eq(artifact["model_id"]) & pred_df["model_variant"].eq("cv_selected")]
+            .sort_values("sample_id", kind="mergesort")
+            .reset_index(drop=True)
+        )
+        assert np.array_equal(preds, stored_preds["predicted_category"].to_numpy(dtype=object))
+        metrics = classification_metrics(va_df["category"], preds)
+        assert abs(metrics["macro_f1"] - float(summary_cv.loc[artifact["model_id"], "val_macro_f1"])) < 1e-12
+
 

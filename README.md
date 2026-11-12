@@ -28,19 +28,48 @@ Kohort eksperimen menggunakan *frozen split* otoritatif (`data/metadata/split_ma
 - Pada subset `val`, **`k4_M0`** merupakan kandidat *image-dependent* terbaik (`0.7761` Dice) dan dikunci di `configs/segmentation_selection.json`.
 - Pada subset *held-out* `test` (`319` citra, `53` grup), **`k4_M0` (`0.7687` Dice) melampaui kontrol konstan `all_foreground` (`0.7587` Dice)** dengan selisih **`+0.0099` Dice (`95% CI [+0.0014, +0.0266]`)**, mengungguli `otsu_M0` pada **245/319 citra (`+0.0588` Dice)**, dan mengungguli `otsu_M2` pada **213/319 citra (`+0.0593` Dice)**.
 
-### 2. Klasifikasi SVM 6 Kelas (`372 val` vs `319 test`)
+### 2. Klasifikasi SVM 6 Kelas
 
-| Track Model | Artifact JSON | Mask & Himpunan Fitur | Kernel (`C`, `gamma`, `weight`) | Val Macro F1 | Test Macro F1 (95% CI) | Test Balanced Acc | Test Accuracy |
+Studi klasifikasi dipisahkan secara eksplisit antara protokol **konfigurasi 2×3 final berdisiplin kebocoran `v3` (`2x3-strict`, `train` + `val`)** dan **rekam historis `v1` + Tahap 08 (`test`)**:
+
+#### 2a. Protokol Final `v3` (`2x3-strict`, *Fold-Aware Upstream CV* & *Validation-Blind* Grid Search)
+
+Artefak di `results/classification_2x3_strict/` dan `models/cv_2x3_strict/` (dengan `v2` *fixed-upstream CV* disimpan terpisah di `results/classification_2x3/` dan `models/cv_2x3/`). Pada `v3`, seluruh komponen *upstream* berparameter (`otsu` *polarity check*, `MiniBatchKMeans(k=4)` + *supervised cluster mapping* `rate >= 0.50`, serta `StandardScaler`) dipasang ulang **di dalam tiap fold latih *5-fold StratifiedGroupKFold*** (`1.535` citra, `247` grup), grid `32` kandidat per model (**480 baris total**) bersifat ***validation-blind*** (`0` kolom `val_*`), model terpilih (`cv_selection_key_for_svm`) dievaluasi **sekali** pada `val` (`372` citra, `53` grup), dan ketidakpastian diestimasi dengan **bootstrap berpasangan terblok grup (`53 val groups`, `B = 2.000`, `seed = 42`)**. Subset *held-out* `test` (`319` citra) **sama sekali tidak diakses**.
+
+| Track & Konfigurasi | Feature Set | Model Terpilih CV (`cv_selected`) | Strict CV Macro F1 | Val Macro F1 (95% Bootstrap CI) | Val Bal Acc | Val Accuracy |
+|---|---|---|---:|---:|---:|---:|
+| `shared_appearance` (Baseline) | `A` (10 fitur) | `rbf, none, C=10, g=scale` | 0.3346 | 0.3140 `[0.2304, 0.4166]` | 0.3207 | 49.73% |
+| **`otsu_M0` (Top Overall)** | **`C` (29 fitur)** | **`linear, none, C=3`** | **0.4642** | **0.4058 `[0.3316, 0.5025]`** | **0.4016** | **56.72%** |
+| `otsu_M1` | `C` (29 fitur) | `rbf, balanced, C=3, g=0.01` | 0.4481 | 0.3470 `[0.2669, 0.4439]` | 0.4171 | 45.16% |
+| `otsu_M2` | `C` (29 fitur) | `rbf, balanced, C=3, g=0.01` | 0.4622 | 0.3462 `[0.2666, 0.4345]` | 0.4240 | 44.62% |
+| `k4_M0` | `C` (29 fitur) | `rbf, balanced, C=3, g=scale` | 0.3707 | 0.3386 `[0.2624, 0.4277]` | 0.4018 | 44.62% |
+| `k4_M1` | `C` (29 fitur) | `rbf, balanced, C=10, g=0.01` | 0.3643 | 0.2951 `[0.2174, 0.3813]` | 0.3489 | 38.98% |
+| `k4_M2` | `C` (29 fitur) | `rbf, balanced, C=3, g=scale` | 0.3766 | 0.3055 `[0.2410, 0.3829]` | 0.3587 | 41.13% |
+| `otsu_M0` (Best Set B) | `B` (19 fitur) | `rbf, balanced, C=10, g=0.01` | 0.4126 | 0.3280 `[0.2712, 0.4113]` | 0.3781 | 43.55% |
+| `otsu_M1` / `otsu_M2` | `B` (19 fitur) | `rbf, balanced, C=10, g=0.01` | 0.3789 / 0.4077 | 0.3033 / 0.3055 | 0.3576 / 0.3393 | 38.17% / 41.13% |
+| `k4_M0` / `k4_M1` / `k4_M2` | `B` (19 fitur) | `rbf, balanced` (`C=10/10/3`) | 0.2744 / 0.2797 / 0.2633 | 0.2490 / 0.2311 / 0.2072 | 0.2790 / 0.2829 / 0.2173 | 33.33% / 32.80% / 29.57% |
+| Sensitivitas `k4_M0` (`A_seg` / `C_seg`) | `10` / `29` FG | `linear, bal, C=1` / `rbf, bal, C=10, 0.01` | 0.3709 / 0.3897 | 0.2575 / 0.2572 | 0.3177 / 0.2593 | 30.91% / 35.75% |
+
+- **Tiga kontras berpasangan dengan *95% bootstrap CI* di atas nol (`B = 2.000`, `82.3%` undian memuat keenam kelas):**
+  - `otsu_M0_C - shared_A = +0.0919 [+0.0190, +0.1788], P(>0) = 0.989` (morfologi mentah Otsu menambah informasi di atas warna/GLCM saja).
+  - `otsu_M0_B - k4_M0_B = +0.0790 [+0.0316, +0.1417], P(>0) = 0.9995` (morfologi murni Otsu jauh melampaui `k4`).
+  - `otsu_M0_C - otsu_M0_B = +0.0778 [+0.0060, +0.1483], P(>0) = 0.984` (menggabungkan *appearance* A dan morfologi Otsu B nyata melampaui Set B saja).
+- **Antar-konfigurasi Set C:** `otsu_M0_C` unggul atas `k4_M0_C` sebesar `+0.0672 [-0.0060, +0.1532], P(>0) = 0.964` (`Val Acc +12.10 pp [+4.15, +21.09 pp]`) dan atas `otsu_M2_C` sebesar `+0.0596 [-0.0091, +0.1330], P(>0) = 0.9525` (`Val Acc +12.10 pp [+4.32, +20.00 pp]`), sementara pembatasan `k4_M0_C_seg` tertinggal dari unmasked `k4_M0_C` (`-0.0815 [-0.1296, -0.0300]`).
+- **Dampak penghapusan kebocoran *upstream* (`v2` $\rightarrow$ `v3`):** `otsu` tetap invarian pada semua 5 fold (polaritas `"dark"` margin Dice $\ge +0.2841$; paritas fitur `<= 2.22e-16`), sehingga seluruh 6 model Otsu dan `Shared Set A` identik antara `v2` dan `v3`. Sebaliknya, *refitting* `k4` per fold mengubah *hyperparameter* pada **6/7 model `k4`** dan skor CV pada **7/7 model `k4`** (`k4_M0_B` CV `0.2937 -> 0.2744`; `k4_M0_C_seg` Val `0.2942 -> 0.2572`).
+- **Hubungan deskriptif Dice segmentasi vs klasifikasi ($n=6$):** berkorelasi **negatif** (`Set B`: Pearson deskriptif `r = -0.9799` CV / `-0.9478` Val; `Set C`: `r = -0.9876` CV / `-0.7706` Val), karena `k4` menutupi `85%–87%` area gambar sehingga melebur kompleks epitel–stroma, sedangkan Otsu (`53%–54%`) mempertahankan struktur komponen epitel/nukleus yang informatif.
+
+#### 2b. Rekam Historis Evaluasi Akhir `v1` / Tahap 08 (`372 val` vs `319 test`, Dipertahankan Utuh)
+
+Tabel historis berikut mencatat artefak `v1` (`results/classification/`, `models/svm_*.json`) serta evaluasi *single-shot held-out test* Tahap 08 (`results/test/`). Karena protokol `v1` memakai penyetelan berbasis `val` pada `k4_M0_C` sebelum perluasan `2x3` (`v2`/`v3`), hasil `test` di bawah ini **milik `v1` saja dan tidak dievaluasi ulang pada `v2`/`v3`**:
+
+| Track Model (`v1`) | Artifact JSON | Mask & Himpunan Fitur | Kernel (`C`, `gamma`, `weight`) | Val Macro F1 | Test Macro F1 (95% CI) | Test Balanced Acc | Test Accuracy |
 |---|---|---|---|---:|---:|---:|---:|
-| Ablasi Set A (Appearance) | `models/svm_k4_M0_A.json` | Tanpa mask (`Set A`: 10 fitur Lab+GLCM) | RBF (`3.0`, `0.03`, `balanced`) | 0.4272 | 0.3313 `[0.2587, 0.3883]` | 0.3401 | 0.4138 |
-| Ablasi Set B (Morphology) | `models/svm_k4_M0_B.json` | `k4_M0` (`Set B`: 19 fitur morfologi) | RBF (`0.3`, `scale`, `none`) | 0.2508 | 0.2094 `[0.1538, 0.2535]` | 0.2371 | 0.3699 |
-| **Primary Locked Track** | **`models/svm_k4_M0_selected.json`** | **`k4_M0` (`Set C`: 29 fitur gabungan)** | **RBF (`10.0`, `scale`, `none`)** | **0.4357** | **0.3507 `[0.2545, 0.4171]`** | **0.3457** | **0.4828** |
-| Segmented-Appearance (`Set C_seg`) | `models/svm_k4_M0_C_seg.json` | `k4_M0` (`Set C_seg`: 29 fitur fokus FG) | RBF (`3.0`, `scale`, `none`) | 0.4063 | 0.3563 `[0.2752, 0.4167]` | 0.3568 | 0.4671 |
-| Comparator Otsu Raw (`Set C`) | `models/svm_otsu_M0_C.json` | `otsu_M0` (`Set C`: 29 fitur gabungan) | RBF (`10.0`, `scale`, `none`) | 0.4252 | 0.4090 `[0.3435, 0.4596]` | 0.4024 | 0.5831 |
-| **Best Classifier Comparator** | **`models/svm_otsu_M2_C.json`** | **`otsu_M2` (`Set C`: 29 fitur gabungan)** | **RBF (`3.0`, `scale`, `none`)** | **0.4601** | **0.4117 `[0.3435, 0.4616]`** | **0.4044** | **0.5925** |
-
-- **Ablasi fitur pada `k4_M0` konsisten di `val` maupun `test`:** penggabungan fitur warna/tekstur dan morfologi (`Set C`: `0.3507` Macro F1, `48.28%` akurasi) melampaui `Set A` (`0.3313` Macro F1, `41.38%` akurasi) maupun `Set B` (`0.2094` Macro F1, `36.99%` akurasi).
-- **Trade-off antara kesesuaian *ground-truth* area jaringan vs daya pisah klasifikasi:** meskipun `k4_M0` unggul signifikan dalam segmentasi (`0.7687` vs `0.7094` Dice), *mask* `k4_M0` cenderung menyatukan komponen jaringan (`pred_fg_fraction` tinggi), sedangkan `otsu_M2` menghasilkan komponen epitel gelap yang lebih terpisah sehingga deskriptor morfologi `Set B` pada `otsu_M2` memberi daya pisah kategori lebih tinggi (`test_macro_f1 = 0.4117`, `test_accuracy = 59.25%`).
+| Ablasi Set A (Appearance) | `models/svm_k4_M0_A.json` | Tanpa mask (`Set A`: 10 fitur Lab+GLCM) | RBF (`3.0`, `0.03`, `balanced`) | 0.4272 | 0.3313 `[0.2587, 0.3883]` | 0.3401 | 41.38% |
+| Ablasi Set B (Morphology) | `models/svm_k4_M0_B.json` | `k4_M0` (`Set B`: 19 fitur morfologi) | RBF (`0.3`, `scale`, `none`) | 0.2508 | 0.2094 `[0.1538, 0.2535]` | 0.2371 | 36.99% |
+| **Primary Locked Track (`v1`)** | **`models/svm_k4_M0_selected.json`** | **`k4_M0` (`Set C`: 29 fitur gabungan)** | **RBF (`10.0`, `scale`, `none`)** | **0.4357** | **0.3507 `[0.2545, 0.4171]`** | **0.3457** | **48.28%** |
+| Segmented-Appearance (`Set C_seg`) | `models/svm_k4_M0_C_seg.json` | `k4_M0` (`Set C_seg`: 29 fitur fokus FG) | RBF (`3.0`, `scale`, `none`) | 0.4063 | 0.3563 `[0.2752, 0.4167]` | 0.3568 | 46.71% |
+| Comparator Otsu Raw (`Set C`) | `models/svm_otsu_M0_C.json` | `otsu_M0` (`Set C`: 29 fitur gabungan) | RBF (`10.0`, `scale`, `none`) | 0.4252 | 0.4090 `[0.3435, 0.4596]` | 0.4024 | 58.31% |
+| Best Classifier Comparator (`v1`) | `models/svm_otsu_M2_C.json` | `otsu_M2` (`Set C`: 29 fitur gabungan) | RBF (`3.0`, `scale`, `none`) | 0.4601 | 0.4117 `[0.3435, 0.4616]` | 0.4044 | 59.25% |
 
 ---
 
@@ -82,9 +111,9 @@ Jika citra mentah tidak tersedia, seluruh analisis berbasis CSV/JSON tetap berja
 | `notebooks/04_lab_kmeans.ipynb` | Konversi fisik CIE Lab (`float32`), provenance *sampling* `1.535.000` piksel `train`, pusat *cluster* `k=2,3,4` & pemetaan `rate >= 0.5`, serta contoh inferensi penuh. |
 | `notebooks/05_segmentation_comparison.ipynb` | Rekonsiliasi 13 metode pada 372 citra `val` (`4.836` baris), perbandingan *equal-category mean* terhadap kontrol `all_foreground`, *heatmap* kategori, dan *coverage*. |
 | `notebooks/05b_segmentation_case_analysis.ipynb` | Ranking kasus (`worst`, `best`, `advantage`, `both_poor`, `ties`), *paired scatter*, histogram skor/delta, galeri 2×3 dengan *error overlay* (`TP`/`FP`/`FN`), dan histogram intensitas/Lab 6-panel. |
-| `notebooks/06_feature_extraction.ipynb` | Ekstraksi 29 fitur (`Set A`: 6 statistik CIE Lab + 4 tekstur *GLCM* 16-level; `Set B`: 4 cakupan *mask* + 15 statistik komponen `area_rel`, `perimeter_rel`, `circularity`, `eccentricity`, `solidity`) beserta varian fokus *foreground* (`Set A_seg`/`C_seg`). |
-| `notebooks/07_svm_classification.ipynb` | Seleksi hiperparameter SVM *One-vs-One* (`StandardScaler` *train-only*, *5-fold GroupKFold* + evaluasi `val`), ablasi `Set A`/`B`/`C`, sensitivitas segmentasi (`k4_M0`, `otsu_M0`, `otsu_M2`, `k4_M1`), *confusion matrix*, dan ekspor artefak JSON portabel untuk C++. |
-| `notebooks/08_final_test_evaluation.ipynb` | Evaluasi akhir satu kali (*single-shot*) pada 319 citra `test` (`53` grup) dengan *group-blocked bootstrap 95% CI* (`2.000` *resamples*, `seed=42`) untuk segmentasi dan klasifikasi SVM beserta galeri kasus `test`. |
+| `notebooks/06_feature_extraction.ipynb` | Ekstraksi fitur 2×3 lengkap (`otsu_M0..k4_M2`): `Set A` bersama (10 fitur CIE Lab + GLCM), `Set B` morfologi (19 fitur per konfigurasi), `Set C` (29 fitur), sensitivitas `A_seg`/`C_seg`, batas ketergantungan *upstream* per-citra vs *train-fit*, dan uji paritas `< 1e-12`. |
+| `notebooks/07_svm_classification.ipynb` | Klasifikasi SVM 2×3 berdisiplin kebocoran `v3` (`2x3-strict`): audit *fold-aware* Otsu & `k4`, grid 32 kandidat *validation-blind*, bootstrap berpasangan `53` grup `val`, asosiasi deskriptif Dice vs Macro-F1 ($n=6$), kontras protokol `v1`/`v2`/`v3`, dan paritas 15 model `models/cv_2x3_strict/*.json`. |
+| `notebooks/08_final_test_evaluation.ipynb` | Rekam historis evaluasi satu kali (*single-shot*) milik **`v1`** pada 319 citra `test` (`53` grup) dengan *group-blocked bootstrap 95% CI* (`2.000` *resamples*, `seed=42`); tidak dijalankan ulang oleh `v2`/`v3`. |
 
 ---
 
@@ -134,16 +163,16 @@ $env:PATH = "C:\msys64\ucrt64\bin;" + $env:PATH
 
 ## Struktur Direktori
 
-- `src/ebhi_dip/` — Paket inti Python: `paths.py`, `dataset.py`, `metrics.py`, `provenance.py`, `segmentation.py`, `analysis.py`, `plotting.py`, `features.py`, `classification.py`, `evaluation.py`.
+- `src/ebhi_dip/` — Paket inti Python: `paths.py`, `dataset.py`, `metrics.py`, `provenance.py`, `segmentation.py`, `analysis.py`, `plotting.py`, `features.py`, `classification.py`, `strict_cv.py`, `evaluation.py`.
 - `cpp/` — Aplikasi C++17 (`CMakeLists.txt`, `include/ebhi_pipeline.hpp`, `src/ebhi_pipeline.cpp`, `src/main_cli.cpp`, `src/main_gui.cpp`).
 - `notebooks/` — Notebook riset terurut (`01`–`08`, termasuk `05b`).
 - `scripts/` — *Thin CLI runners* dengan penjaga `--overwrite` (`extract_features.py`, `evaluate_svm_val.py`, `evaluate_final_test.py`, dll.).
 - `configs/` — Konfigurasi eksperimen (`otsu_raw.json`, `segmentation_selection.json`, `provenance_migration.json`).
 - `data/metadata/` — Manifest, audit, grup nama file, serta `split_manifest.csv` + `.sha256` yang dibekukan.
-- `models/` — Artefak JSON pusat *cluster* Lab K-means (`kmeans_lab_k*_mapped.json`) dan model SVM portabel (`svm_*.json`).
-- `results/` — Skor validasi segmentasi, tabel fitur (`results/features/`), hasil validasi SVM (`results/classification/`), dan hasil evaluasi akhir *held-out* `test` (`results/test/`).
+- `models/` — Artefak JSON pusat *cluster* Lab K-means (`kmeans_lab_k*_mapped.json`), model SVM historis `v1` (`svm_*.json`), model `v2` (`cv_2x3/`), dan model kanonik `v3` (`cv_2x3_strict/`).
+- `results/` — Skor validasi segmentasi, tabel fitur 2×3 (`results/features/`), hasil SVM historis `v1` (`results/classification/`), `v2` (`results/classification_2x3/`), `v3` final (`results/classification_2x3_strict/`), dan hasil *test* historis `v1` (`results/test/`).
 - `docs/` — Dokumentasi garis keturunan provenance (`docs/provenance_migration.md`).
-- `tests/` — Pengujian kontrak numerik, integritas kohort, provenance, ekstraksi fitur, klasifikasi SVM, evaluasi `test`, serta paritas C++ vs Python (`59 passed`).
+- `tests/` — Pengujian kontrak numerik, integritas kohort, provenance, ekstraksi fitur 2×3, klasifikasi SVM `v1`/`v2`/`v3` (*fold-aware* + *val-blind*), evaluasi historis `test`, serta paritas C++ vs Python.
 
 ---
 
@@ -153,6 +182,12 @@ Jalankan seluruh *unit & parity tests* (termasuk pengujian paritas CLI dan GUI C
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
+```
+
+Jalankan evaluasi klasifikasi 2×3 protokol ketat (`v3`, memakai *fold cache* di `data/processed/strict_cv_2x3/` bila tersedia):
+
+```powershell
+.\.venv\Scripts\python.exe scripts/evaluate_svm_val.py --protocol 2x3-strict --workers 8
 ```
 
 Jalankan ulang seluruh *notebook* (`01`–`08`) dari *fresh kernel*:
@@ -177,4 +212,4 @@ Jalankan ulang seluruh *notebook* (`01`–`08`) dari *fresh kernel*:
 2. **Makna biologis segmentasi warna/intensitas:** baik Otsu maupun Lab K-means memisahkan kecerahan/warna pewarnaan H&E secara global; *mask* yang dihasilkan adalah representasi kompartemen warna jaringan dan **bukan** segmentasi nukleus, kelenjar, atau area kanker yang tervalidasi secara klinis.
 3. **Integritas frozen split:** `data/metadata/split_manifest.csv` diverifikasi menggunakan *raw bytes* secara ketat; normalisasi *line-ending* dilarang pada file tersebut.
 4. **Lineage kode sumber (`utf8-lf-v1`):** perbedaan *hash* `CRLF` vs `LF` pada *helper* historis ditangani secara eksplisit melalui `configs/provenance_migration.json` dan `docs/provenance_migration.md`.
-5. **Disiplin subset `test`:** subset `test` (`319` citra) hanya dievaluasi satu kali setelah seluruh parameter segmentasi (`configs/segmentation_selection.json`) dan model SVM (`models/svm_*.json`) dikunci pada `train`/`val`.
+5. **Disiplin subset `test` & batasan validasi 2×3:** evaluasi historis `test` (`319` citra, Tahap 08) hanya dilakukan pada artefak `v1`. Pada protokol **`v2` dan `v3` (`2x3-strict`)**, `test` sama sekali tidak disentuh (`0` citra). Korelasi Dice vs Macro-F1 lintas $n=6$ konfigurasi bersifat deskriptif saja, dan evaluasi `val` dibatasi oleh jumlah grup kelas minoritas yang sangat kecil (`2` grup `Serrated adenoma`, `3` grup `Normal`; `82.3%` penarikan bootstrap memuat keenam kelas).

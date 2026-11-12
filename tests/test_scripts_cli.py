@@ -57,3 +57,13 @@ def test_stage06_and_stage07_2x3_scripts_refuse_overwrite_by_default() -> None:
         spec.loader.exec_module(mod)
         with pytest.raises(FileExistsError, match="Refusing to overwrite"):
             mod.main(["--project-root", str(REPO_ROOT)])
+
+    svm_spec = importlib.util.spec_from_file_location("_cli_eval_svm", SCRIPTS_DIR / "evaluate_svm_val.py")
+    assert svm_spec is not None and svm_spec.loader is not None
+    svm_mod = importlib.util.module_from_spec(svm_spec)
+    svm_spec.loader.exec_module(svm_mod)
+    args = svm_mod.build_parser().parse_args([])
+    assert args.protocol == "2x3-strict"
+    for proto in ("2x3-strict", "2x3", "legacy-v1"):
+        with pytest.raises(FileExistsError, match="Refusing to overwrite"):
+            svm_mod.main(["--project-root", str(REPO_ROOT), "--protocol", proto])

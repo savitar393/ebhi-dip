@@ -1,0 +1,186 @@
+{
+  "protocol_id": "stage07_2x3_strict_fold_aware_val_blind_cv_v3",
+  "study_design": "Complete 2x3 comparison (otsu/k4 x M0/M1/M2) under strict fold-aware upstream CV & val-blind hyperparameter search",
+  "task": "image_level_6_class_classification",
+  "split_sha256": "ceeba8e282f77cdb78a9675618b3dcb6729fbc2339e2d112085a11720fc9108d",
+  "feature_manifest_2x3_sha256": "c4661240fe0425b287ace34db46029c7ef277fccf084135a73da2927256e0f2f",
+  "shared_appearance_sha256": "4d7b2c8b8a3c86ff710dfa02d332d304575ea481c6064f5efd5312d5e9991a21",
+  "preserved_v1_classification_manifest_sha256": "242f5fba52e78bbee3d9ca23f8963fa349b81556ad1703c76436b43b01709a36",
+  "preserved_v2_classification_manifest_sha256": "420542b88371cf832c50978986aad6458e5f0b6e45c07ea68e96ce78ec533ed5",
+  "cohort_counts": {
+    "train_images": 1535,
+    "train_groups": 247,
+    "val_images": 372,
+    "val_groups": 53,
+    "test_images_touched_in_2x3_strict": 0,
+    "test_labels_accessed_in_2x3_strict": false,
+    "historical_test_note": "Held-out test (319 images) was NOT touched in v3, though historical v1/Stage 08 results in results/test/ have previously evaluated test at the repository level."
+  },
+  "methods": [
+    "otsu_M0",
+    "otsu_M1",
+    "otsu_M2",
+    "k4_M0",
+    "k4_M1",
+    "k4_M2"
+  ],
+  "shared_appearance_method": "shared_appearance",
+  "primary_method": "k4_M0",
+  "feature_sets_tested": [
+    "A",
+    "B",
+    "C",
+    "A_seg",
+    "C_seg"
+  ],
+  "cv_protocol": {
+    "splitter": "StratifiedGroupKFold",
+    "n_splits": 5,
+    "upstream_k4_refitted_per_fold": true,
+    "upstream_otsu_polarity_checked_per_fold": true,
+    "scaler_fit_scope": "within_each_cv_fold_strict",
+    "val_evaluated_during_grid_search": false,
+    "grid_candidates_per_model": 32,
+    "total_grid_rows": 480,
+    "selection_rule": "cv_selection_key_for_svm",
+    "otsu_fold_invariance_all_dark": true
+  },
+  "validation_bootstrap": {
+    "method": "group_blocked_paired_bootstrap_with_replacement",
+    "n_val_groups": 53,
+    "n_resamples": 2000,
+    "seed": 42,
+    "all_6_categories_present_frac": 0.823,
+    "note": "Macro-F1 & Balanced Accuracy within each bootstrap replicate average over categories with support > 0 in that replicate; Serrated adenoma occupies 2 val groups (8 images) and Normal occupies 3 val groups (10 images)."
+  },
+  "correlations_descriptive_only_n6": {
+    "warning": "Computed across n=6 dependent configurations on shared validation images; treat as descriptive magnitude summaries rather than confirmatory hypothesis tests.",
+    "values": {
+      "B": {
+        "seg_val_mean_category_dice_vs_cv_macro_f1": {
+          "pearson_r": -0.9798970809481711,
+          "pearson_pvalue": 0.0006021289618604692,
+          "spearman_rho": -0.7714285714285715,
+          "spearman_pvalue": 0.07239650145772594
+        },
+        "seg_val_mean_category_dice_vs_val_macro_f1": {
+          "pearson_r": -0.9478235219022202,
+          "pearson_pvalue": 0.004012555072846905,
+          "spearman_rho": -0.7142857142857143,
+          "spearman_pvalue": 0.11078717201166179
+        },
+        "seg_val_mean_category_dice_vs_val_balanced_accuracy": {
+          "pearson_r": -0.9065615288741007,
+          "pearson_pvalue": 0.012688227962375377,
+          "spearman_rho": -0.8285714285714287,
+          "spearman_pvalue": 0.04156268221574335
+        },
+        "seg_val_mean_category_dice_vs_val_accuracy": {
+          "pearson_r": -0.9188313349747455,
+          "pearson_pvalue": 0.009615144397309122,
+          "spearman_rho": -0.7142857142857143,
+          "spearman_pvalue": 0.11078717201166179
+        },
+        "seg_val_mean_category_iou_vs_cv_macro_f1": {
+          "pearson_r": -0.9763547979671621,
+          "pearson_pvalue": 0.0008320334047979699,
+          "spearman_rho": -0.7714285714285715,
+          "spearman_pvalue": 0.07239650145772594
+        },
+        "seg_val_mean_category_iou_vs_val_macro_f1": {
+          "pearson_r": -0.9501609140523432,
+          "pearson_pvalue": 0.003664003219926575,
+          "spearman_rho": -0.7142857142857143,
+          "spearman_pvalue": 0.11078717201166179
+        },
+        "seg_val_mean_category_iou_vs_val_balanced_accuracy": {
+          "pearson_r": -0.9129084541547562,
+          "pearson_pvalue": 0.011047114076759946,
+          "spearman_rho": -0.8285714285714287,
+          "spearman_pvalue": 0.04156268221574335
+        },
+        "seg_val_mean_category_iou_vs_val_accuracy": {
+          "pearson_r": -0.9186057764262278,
+          "pearson_pvalue": 0.009667910282245522,
+          "spearman_rho": -0.7142857142857143,
+          "spearman_pvalue": 0.11078717201166179
+        }
+      },
+      "C": {
+        "seg_val_mean_category_dice_vs_cv_macro_f1": {
+          "pearson_r": -0.9875938988783698,
+          "pearson_pvalue": 0.00022991229770500052,
+          "spearman_rho": -0.8857142857142858,
+          "spearman_pvalue": 0.01884548104956266
+        },
+        "seg_val_mean_category_dice_vs_val_macro_f1": {
+          "pearson_r": -0.7705632325680825,
+          "pearson_pvalue": 0.07292292852335709,
+          "spearman_rho": -0.8285714285714287,
+          "spearman_pvalue": 0.04156268221574335
+        },
+        "seg_val_mean_category_dice_vs_val_balanced_accuracy": {
+          "pearson_r": -0.7669983585908542,
+          "pearson_pvalue": 0.07510984518240095,
+          "spearman_rho": -0.3142857142857143,
+          "spearman_pvalue": 0.5440932944606415
+        },
+        "seg_val_mean_category_dice_vs_val_accuracy": {
+          "pearson_r": -0.6797090073810959,
+          "pearson_pvalue": 0.1374507428058025,
+          "spearman_rho": -0.753702346348183,
+          "spearman_pvalue": 0.08352328137325983
+        },
+        "seg_val_mean_category_iou_vs_cv_macro_f1": {
+          "pearson_r": -0.9834351149670048,
+          "pearson_pvalue": 0.00040932045997341403,
+          "spearman_rho": -0.8857142857142858,
+          "spearman_pvalue": 0.01884548104956266
+        },
+        "seg_val_mean_category_iou_vs_val_macro_f1": {
+          "pearson_r": -0.7802034308110808,
+          "pearson_pvalue": 0.06715655316517156,
+          "spearman_rho": -0.8285714285714287,
+          "spearman_pvalue": 0.04156268221574335
+        },
+        "seg_val_mean_category_iou_vs_val_balanced_accuracy": {
+          "pearson_r": -0.7601531155010934,
+          "pearson_pvalue": 0.07939101274686865,
+          "spearman_rho": -0.3142857142857143,
+          "spearman_pvalue": 0.5440932944606415
+        },
+        "seg_val_mean_category_iou_vs_val_accuracy": {
+          "pearson_r": -0.6925845955340094,
+          "pearson_pvalue": 0.12723031817108815,
+          "spearman_rho": -0.753702346348183,
+          "spearman_pvalue": 0.08352328137325983
+        }
+      }
+    }
+  },
+  "versions": {
+    "python": "3.14.0",
+    "scikit_learn": "1.9.1",
+    "scipy": "1.18.1",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1"
+  },
+  "decision_parity_atol": 1e-10,
+  "exported_model_files": [
+    "models/cv_2x3_strict/svm_shared_A.json",
+    "models/cv_2x3_strict/svm_otsu_M0_B.json",
+    "models/cv_2x3_strict/svm_otsu_M0_C.json",
+    "models/cv_2x3_strict/svm_otsu_M1_B.json",
+    "models/cv_2x3_strict/svm_otsu_M1_C.json",
+    "models/cv_2x3_strict/svm_otsu_M2_B.json",
+    "models/cv_2x3_strict/svm_otsu_M2_C.json",
+    "models/cv_2x3_strict/svm_k4_M0_B.json",
+    "models/cv_2x3_strict/svm_k4_M0_C.json",
+    "models/cv_2x3_strict/svm_k4_M1_B.json",
+    "models/cv_2x3_strict/svm_k4_M1_C.json",
+    "models/cv_2x3_strict/svm_k4_M2_B.json",
+    "models/cv_2x3_strict/svm_k4_M2_C.json",
+    "models/cv_2x3_strict/svm_k4_M0_A_seg.json",
+    "models/cv_2x3_strict/svm_k4_M0_C_seg.json"
+  ]
+}

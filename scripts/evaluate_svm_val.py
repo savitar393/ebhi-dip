@@ -19,6 +19,12 @@ from ebhi_dip.features import (
     PRIMARY_FEATURE_METHOD,
 )
 from ebhi_dip.paths import find_project_root
+from ebhi_dip.strict_cv import (
+    CLASSIFICATION_2X3_STRICT_DIR_REL,
+    MODELS_CV_2X3_STRICT_DIR_REL,
+    run_svm_2x3_strict_experiments,
+    save_strict_2x3_outputs,
+)
 
 OUTPUT_DIR_REL = Path("results/classification")
 MODELS_DIR_REL = Path("models")
@@ -29,9 +35,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project-root", type=Path, default=None, help="Explicit repository root.")
     parser.add_argument(
         "--protocol",
-        choices=("2x3", "legacy-v1"),
-        default="2x3",
-        help="Evaluation protocol: '2x3' (CV-selected 2x3 study in results/classification_2x3/) or 'legacy-v1'.",
+        choices=("2x3-strict", "2x3", "legacy-v1"),
+        default="2x3-strict",
+        help=(
+            "Evaluation protocol: '2x3-strict' (strict fold-aware upstream CV & val-blind "
+            "selection in results/classification_2x3_strict/, default), '2x3' (fixed-upstream CV in "
+            "results/classification_2x3/), or 'legacy-v1'."
+        ),
     )
     parser.add_argument(
         "--primary-method",
@@ -42,7 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--methods",
         nargs="+",
         default=None,
-        help="Segmentation methods under protocol=2x3 (default: 6 configurations otsu/k4 M0-M2).",
+        help="Segmentation methods under protocol=2x3/2x3-strict (default: 6 configurations otsu/k4 M0-M2).",
     )
     parser.add_argument(
         "--comparators",
@@ -50,6 +60,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=list(DEFAULT_FEATURE_METHODS),
         help=f"Segmentation comparators under protocol=legacy-v1 (default: {' '.join(DEFAULT_FEATURE_METHODS)}).",
     )
+    parser.add_argument("--data-root", type=Path, default=None, help="Optional EBHI-SEG data root override.")
+    parser.add_argument("--workers", type=int, default=8, help="Parallel worker count for fold feature extraction.")
+    parser.add_argument("--no-cache", action="store_true", help="Disable strict fold feature cache reuse.")
     parser.add_argument(
         "--overwrite",
         action="store_true",
@@ -130,6 +143,56 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     methods = list(args.methods) if args.methods is not None else list(COMPARISON_2X3_METHODS)
+    if args.protocol == "2x3-strict":
+        output_dir = project_root / CLASSIFICATION_2X3_STRICT_DIR_REL
+        models_dir = project_root / MODELS_CV_2X3_STRICT_DIR_REL
+        expected_model_ids = [
+            "svm_shared_A",
+            *(f"svm_{m}_B" for m in methods),
+            *(f"svm_{m}_C" for m in methods),
+            f"svm_{args.primary_method}_A_seg",
+            f"svm_{args.primary_method}_C_seg",
+        ]
+        expected_files = [
+            output_dir / "svm_2x3_strict_grid_results.csv",
+            output_dir / "svm_2x3_strict_selected_summary.csv",
+            output_dir / "svm_2x3_strict_per_category_val.csv",
+            output_dir / "svm_2x3_strict_seg_vs_cls.csv",
+            output_dir / "svm_2x3_strict_val_predictions.csv",
+            output_dir / "svm_2x3_strict_val_bootstrap_models.csv",
+            output_dir / "svm_2x3_strict_val_paired_contrasts.csv",
+            output_dir / "svm_2x3_strict_vs_fixed_upstream.csv",
+            output_dir / "fold_upstream_audit.json",
+            output_dir / "classification_2x3_strict_manifest.json",
+            *(models_dir / f"{model_id}.json" for model_id in expected_model_ids),
+        ]
+        if any(path.exists() for path in expected_files) and not args.overwrite:
+            raise FileExistsError(
+                f"Refusing to overwrite existing 2x3-strict SVM artifacts under '{output_dir}' without --overwrite."
+            )
+
+        strict_outputs = run_svm_2x3_strict_experiments(
+            project_root,
+            methods=methods,
+            primary_method=args.primary_method,
+            data_root_override=args.data_root,
+            workers=args.workers,
+            use_cache=not args.no_cache,
+        )
+        save_strict_2x3_outputs(strict_outputs, project_root)
+        sel_rows = strict_outputs.selected_summary.loc[
+            strict_outputs.selected_summary["model_variant"].eq("cv_selected")
+        ]
+        top_row = sel_rows.sort_values(["cv_macro_f1", "val_macro_f1"], ascending=False).iloc[0]
+        print(
+            f"Stage 07 2x3-strict evaluation complete | methods={','.join(methods)} | "
+            f"top_by_cv={top_row['model_id']} (cv_macro_f1={top_row['cv_macro_f1']:.4f}, "
+            f"val_macro_f1={top_row['val_macro_f1']:.4f} "
+            f"[95% CI {top_row['val_macro_f1_ci95_low']:.4f}-{top_row['val_macro_f1_ci95_high']:.4f}], "
+            f"val_accuracy={top_row['val_accuracy']:.4f})"
+        )
+        return 0
+
     output_dir = project_root / CLASSIFICATION_2X3_DIR_REL
     models_dir = project_root / MODELS_CV_2X3_DIR_REL
 

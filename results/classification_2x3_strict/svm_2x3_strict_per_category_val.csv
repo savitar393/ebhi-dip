@@ -1,0 +1,181 @@
+track,method,feature_set,model_variant,model_id,category,support,predicted_count,tp,fp,fn,tn,precision,recall,f1
+shared_baseline,shared_appearance,A,cv_selected,svm_shared_A,Adenocarcinoma,131,97,53,44,78,197,0.5463917525773195,0.40458015267175573,0.4649122807017544
+shared_baseline,shared_appearance,A,cv_selected,svm_shared_A,High-grade IN,20,10,1,9,19,343,0.1,0.05,0.06666666666666667
+shared_baseline,shared_appearance,A,cv_selected,svm_shared_A,Low-grade IN,107,171,69,102,38,163,0.40350877192982454,0.6448598130841121,0.49640287769784175
+shared_baseline,shared_appearance,A,cv_selected,svm_shared_A,Normal,10,13,2,11,8,351,0.15384615384615385,0.2,0.17391304347826086
+shared_baseline,shared_appearance,A,cv_selected,svm_shared_A,Polyp,96,80,60,20,36,256,0.75,0.625,0.6818181818181818
+shared_baseline,shared_appearance,A,cv_selected,svm_shared_A,Serrated adenoma,8,1,0,1,8,363,0.0,0.0,0.0
+shared_baseline,shared_appearance,A,default_rbf,svm_shared_A,Adenocarcinoma,131,123,63,60,68,181,0.5121951219512195,0.48091603053435117,0.49606299212598426
+shared_baseline,shared_appearance,A,default_rbf,svm_shared_A,High-grade IN,20,0,0,0,20,352,0.0,0.0,0.0
+shared_baseline,shared_appearance,A,default_rbf,svm_shared_A,Low-grade IN,107,166,65,101,42,164,0.39156626506024095,0.6074766355140186,0.47619047619047616
+shared_baseline,shared_appearance,A,default_rbf,svm_shared_A,Normal,10,2,0,2,10,360,0.0,0.0,0.0
+shared_baseline,shared_appearance,A,default_rbf,svm_shared_A,Polyp,96,81,59,22,37,254,0.7283950617283951,0.6145833333333334,0.6666666666666666
+shared_baseline,shared_appearance,A,default_rbf,svm_shared_A,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
+factorial_2x3,otsu_M0,B,cv_selected,svm_otsu_M0_B,Adenocarcinoma,131,71,35,36,96,205,0.49295774647887325,0.26717557251908397,0.3465346534653465
+factorial_2x3,otsu_M0,B,cv_selected,svm_otsu_M0_B,High-grade IN,20,48,9,39,11,313,0.1875,0.45,0.2647058823529412
+factorial_2x3,otsu_M0,B,cv_selected,svm_otsu_M0_B,Low-grade IN,107,103,57,46,50,219,0.5533980582524272,0.5327102803738317,0.5428571428571428
+factorial_2x3,otsu_M0,B,cv_selected,svm_otsu_M0_B,Normal,10,44,3,41,7,321,0.06818181818181818,0.3,0.1111111111111111
+factorial_2x3,otsu_M0,B,cv_selected,svm_otsu_M0_B,Polyp,96,82,57,25,39,251,0.6951219512195121,0.59375,0.6404494382022472
+factorial_2x3,otsu_M0,B,cv_selected,svm_otsu_M0_B,Serrated adenoma,8,24,1,23,7,341,0.041666666666666664,0.125,0.0625
+factorial_2x3,otsu_M0,B,default_rbf,svm_otsu_M0_B,Adenocarcinoma,131,153,74,79,57,162,0.48366013071895425,0.5648854961832062,0.5211267605633803
+factorial_2x3,otsu_M0,B,default_rbf,svm_otsu_M0_B,High-grade IN,20,4,2,2,18,350,0.5,0.1,0.16666666666666666
+factorial_2x3,otsu_M0,B,default_rbf,svm_otsu_M0_B,Low-grade IN,107,116,56,60,51,205,0.4827586206896552,0.5233644859813084,0.5022421524663677
+factorial_2x3,otsu_M0,B,default_rbf,svm_otsu_M0_B,Normal,10,3,0,3,10,359,0.0,0.0,0.0
+factorial_2x3,otsu_M0,B,default_rbf,svm_otsu_M0_B,Polyp,96,96,69,27,27,249,0.71875,0.71875,0.71875
+factorial_2x3,otsu_M0,B,default_rbf,svm_otsu_M0_B,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
+factorial_2x3,otsu_M0,C,cv_selected,svm_otsu_M0_C,Adenocarcinoma,131,123,70,53,61,188,0.5691056910569106,0.5343511450381679,0.5511811023622047
+factorial_2x3,otsu_M0,C,cv_selected,svm_otsu_M0_C,High-grade IN,20,9,4,5,16,347,0.4444444444444444,0.2,0.27586206896551724
+factorial_2x3,otsu_M0,C,cv_selected,svm_otsu_M0_C,Low-grade IN,107,129,66,63,41,202,0.5116279069767442,0.616822429906542,0.559322033898305
+factorial_2x3,otsu_M0,C,cv_selected,svm_otsu_M0_C,Normal,10,11,1,10,9,352,0.09090909090909091,0.1,0.09523809523809523
+factorial_2x3,otsu_M0,C,cv_selected,svm_otsu_M0_C,Polyp,96,90,68,22,28,254,0.7555555555555555,0.7083333333333334,0.7311827956989247
+factorial_2x3,otsu_M0,C,cv_selected,svm_otsu_M0_C,Serrated adenoma,8,10,2,8,6,356,0.2,0.25,0.2222222222222222
+factorial_2x3,otsu_M0,C,default_rbf,svm_otsu_M0_C,Adenocarcinoma,131,112,68,44,63,197,0.6071428571428571,0.5190839694656488,0.5596707818930041
+factorial_2x3,otsu_M0,C,default_rbf,svm_otsu_M0_C,High-grade IN,20,11,3,8,17,344,0.2727272727272727,0.15,0.1935483870967742
+factorial_2x3,otsu_M0,C,default_rbf,svm_otsu_M0_C,Low-grade IN,107,148,80,68,27,197,0.5405405405405406,0.7476635514018691,0.6274509803921569
+factorial_2x3,otsu_M0,C,default_rbf,svm_otsu_M0_C,Normal,10,6,1,5,9,357,0.16666666666666666,0.1,0.125
+factorial_2x3,otsu_M0,C,default_rbf,svm_otsu_M0_C,Polyp,96,88,70,18,26,258,0.7954545454545454,0.7291666666666666,0.7608695652173914
+factorial_2x3,otsu_M0,C,default_rbf,svm_otsu_M0_C,Serrated adenoma,8,7,0,7,8,357,0.0,0.0,0.0
+factorial_2x3,otsu_M1,B,cv_selected,svm_otsu_M1_B,Adenocarcinoma,131,77,35,42,96,199,0.45454545454545453,0.26717557251908397,0.33653846153846156
+factorial_2x3,otsu_M1,B,cv_selected,svm_otsu_M1_B,High-grade IN,20,40,11,29,9,323,0.275,0.55,0.36666666666666664
+factorial_2x3,otsu_M1,B,cv_selected,svm_otsu_M1_B,Low-grade IN,107,102,51,51,56,214,0.5,0.4766355140186916,0.4880382775119617
+factorial_2x3,otsu_M1,B,cv_selected,svm_otsu_M1_B,Normal,10,48,3,45,7,317,0.0625,0.3,0.10344827586206896
+factorial_2x3,otsu_M1,B,cv_selected,svm_otsu_M1_B,Polyp,96,82,41,41,55,235,0.5,0.4270833333333333,0.4606741573033708
+factorial_2x3,otsu_M1,B,cv_selected,svm_otsu_M1_B,Serrated adenoma,8,23,1,22,7,342,0.043478260869565216,0.125,0.06451612903225806
+factorial_2x3,otsu_M1,B,default_rbf,svm_otsu_M1_B,Adenocarcinoma,131,150,74,76,57,165,0.49333333333333335,0.5648854961832062,0.5266903914590747
+factorial_2x3,otsu_M1,B,default_rbf,svm_otsu_M1_B,High-grade IN,20,4,2,2,18,350,0.5,0.1,0.16666666666666666
+factorial_2x3,otsu_M1,B,default_rbf,svm_otsu_M1_B,Low-grade IN,107,119,56,63,51,202,0.47058823529411764,0.5233644859813084,0.49557522123893805
+factorial_2x3,otsu_M1,B,default_rbf,svm_otsu_M1_B,Normal,10,1,0,1,10,361,0.0,0.0,0.0
+factorial_2x3,otsu_M1,B,default_rbf,svm_otsu_M1_B,Polyp,96,98,65,33,31,243,0.6632653061224489,0.6770833333333334,0.6701030927835051
+factorial_2x3,otsu_M1,B,default_rbf,svm_otsu_M1_B,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
+factorial_2x3,otsu_M1,C,cv_selected,svm_otsu_M1_C,Adenocarcinoma,131,65,34,31,97,210,0.5230769230769231,0.2595419847328244,0.3469387755102041
+factorial_2x3,otsu_M1,C,cv_selected,svm_otsu_M1_C,High-grade IN,20,35,6,29,14,323,0.17142857142857143,0.3,0.21818181818181817
+factorial_2x3,otsu_M1,C,cv_selected,svm_otsu_M1_C,Low-grade IN,107,116,63,53,44,212,0.5431034482758621,0.5887850467289719,0.5650224215246636
+factorial_2x3,otsu_M1,C,cv_selected,svm_otsu_M1_C,Normal,10,43,5,38,5,324,0.11627906976744186,0.5,0.18867924528301888
+factorial_2x3,otsu_M1,C,cv_selected,svm_otsu_M1_C,Polyp,96,76,58,18,38,258,0.7631578947368421,0.6041666666666666,0.6744186046511628
+factorial_2x3,otsu_M1,C,cv_selected,svm_otsu_M1_C,Serrated adenoma,8,37,2,35,6,329,0.05405405405405406,0.25,0.08888888888888889
+factorial_2x3,otsu_M1,C,default_rbf,svm_otsu_M1_C,Adenocarcinoma,131,113,62,51,69,190,0.5486725663716814,0.4732824427480916,0.5081967213114754
+factorial_2x3,otsu_M1,C,default_rbf,svm_otsu_M1_C,High-grade IN,20,9,3,6,17,346,0.3333333333333333,0.15,0.20689655172413793
+factorial_2x3,otsu_M1,C,default_rbf,svm_otsu_M1_C,Low-grade IN,107,156,75,81,32,184,0.4807692307692308,0.7009345794392523,0.5703422053231939
+factorial_2x3,otsu_M1,C,default_rbf,svm_otsu_M1_C,Normal,10,6,0,6,10,356,0.0,0.0,0.0
+factorial_2x3,otsu_M1,C,default_rbf,svm_otsu_M1_C,Polyp,96,88,67,21,29,255,0.7613636363636364,0.6979166666666666,0.7282608695652174
+factorial_2x3,otsu_M1,C,default_rbf,svm_otsu_M1_C,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
+factorial_2x3,otsu_M2,B,cv_selected,svm_otsu_M2_B,Adenocarcinoma,131,91,47,44,84,197,0.5164835164835165,0.35877862595419846,0.42342342342342343
+factorial_2x3,otsu_M2,B,cv_selected,svm_otsu_M2_B,High-grade IN,20,36,6,30,14,322,0.16666666666666666,0.3,0.21428571428571427
+factorial_2x3,otsu_M2,B,cv_selected,svm_otsu_M2_B,Low-grade IN,107,75,45,30,62,235,0.6,0.4205607476635514,0.4945054945054945
+factorial_2x3,otsu_M2,B,cv_selected,svm_otsu_M2_B,Normal,10,34,3,31,7,331,0.08823529411764706,0.3,0.13636363636363635
+factorial_2x3,otsu_M2,B,cv_selected,svm_otsu_M2_B,Polyp,96,101,51,50,45,226,0.504950495049505,0.53125,0.5177664974619289
+factorial_2x3,otsu_M2,B,cv_selected,svm_otsu_M2_B,Serrated adenoma,8,35,1,34,7,330,0.02857142857142857,0.125,0.046511627906976744
+factorial_2x3,otsu_M2,B,default_rbf,svm_otsu_M2_B,Adenocarcinoma,131,155,83,72,48,169,0.535483870967742,0.6335877862595419,0.5804195804195804
+factorial_2x3,otsu_M2,B,default_rbf,svm_otsu_M2_B,High-grade IN,20,3,2,1,18,351,0.6666666666666666,0.1,0.17391304347826086
+factorial_2x3,otsu_M2,B,default_rbf,svm_otsu_M2_B,Low-grade IN,107,118,64,54,43,211,0.5423728813559322,0.5981308411214953,0.5688888888888889
+factorial_2x3,otsu_M2,B,default_rbf,svm_otsu_M2_B,Normal,10,0,0,0,10,362,0.0,0.0,0.0
+factorial_2x3,otsu_M2,B,default_rbf,svm_otsu_M2_B,Polyp,96,96,67,29,29,247,0.6979166666666666,0.6979166666666666,0.6979166666666666
+factorial_2x3,otsu_M2,B,default_rbf,svm_otsu_M2_B,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
+factorial_2x3,otsu_M2,C,cv_selected,svm_otsu_M2_C,Adenocarcinoma,131,74,42,32,89,209,0.5675675675675675,0.32061068702290074,0.4097560975609756
+factorial_2x3,otsu_M2,C,cv_selected,svm_otsu_M2_C,High-grade IN,20,41,5,36,15,316,0.12195121951219512,0.25,0.16393442622950818
+factorial_2x3,otsu_M2,C,cv_selected,svm_otsu_M2_C,Low-grade IN,107,96,54,42,53,223,0.5625,0.5046728971962616,0.5320197044334976
+factorial_2x3,otsu_M2,C,cv_selected,svm_otsu_M2_C,Normal,10,43,5,38,5,324,0.11627906976744186,0.5,0.18867924528301888
+factorial_2x3,otsu_M2,C,cv_selected,svm_otsu_M2_C,Polyp,96,76,57,19,39,257,0.75,0.59375,0.6627906976744186
+factorial_2x3,otsu_M2,C,cv_selected,svm_otsu_M2_C,Serrated adenoma,8,42,3,39,5,325,0.07142857142857142,0.375,0.12
+factorial_2x3,otsu_M2,C,default_rbf,svm_otsu_M2_C,Adenocarcinoma,131,121,77,44,54,197,0.6363636363636364,0.5877862595419847,0.6111111111111112
+factorial_2x3,otsu_M2,C,default_rbf,svm_otsu_M2_C,High-grade IN,20,9,5,4,15,348,0.5555555555555556,0.25,0.3448275862068966
+factorial_2x3,otsu_M2,C,default_rbf,svm_otsu_M2_C,Low-grade IN,107,150,78,72,29,193,0.52,0.7289719626168224,0.6070038910505836
+factorial_2x3,otsu_M2,C,default_rbf,svm_otsu_M2_C,Normal,10,4,1,3,9,359,0.25,0.1,0.14285714285714285
+factorial_2x3,otsu_M2,C,default_rbf,svm_otsu_M2_C,Polyp,96,88,65,23,31,253,0.7386363636363636,0.6770833333333334,0.7065217391304348
+factorial_2x3,otsu_M2,C,default_rbf,svm_otsu_M2_C,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
+factorial_2x3,k4_M0,B,cv_selected,svm_k4_M0_B,Adenocarcinoma,131,92,45,47,86,194,0.4891304347826087,0.3435114503816794,0.40358744394618834
+factorial_2x3,k4_M0,B,cv_selected,svm_k4_M0_B,High-grade IN,20,32,4,28,16,324,0.125,0.2,0.15384615384615385
+factorial_2x3,k4_M0,B,cv_selected,svm_k4_M0_B,Low-grade IN,107,73,32,41,75,224,0.4383561643835616,0.29906542056074764,0.35555555555555557
+factorial_2x3,k4_M0,B,cv_selected,svm_k4_M0_B,Normal,10,54,3,51,7,311,0.05555555555555555,0.3,0.09375
+factorial_2x3,k4_M0,B,cv_selected,svm_k4_M0_B,Polyp,96,78,39,39,57,237,0.5,0.40625,0.4482758620689655
+factorial_2x3,k4_M0,B,cv_selected,svm_k4_M0_B,Serrated adenoma,8,43,1,42,7,322,0.023255813953488372,0.125,0.0392156862745098
+factorial_2x3,k4_M0,B,default_rbf,svm_k4_M0_B,Adenocarcinoma,131,142,69,73,62,168,0.4859154929577465,0.5267175572519084,0.5054945054945055
+factorial_2x3,k4_M0,B,default_rbf,svm_k4_M0_B,High-grade IN,20,0,0,0,20,352,0.0,0.0,0.0
+factorial_2x3,k4_M0,B,default_rbf,svm_k4_M0_B,Low-grade IN,107,151,52,99,55,166,0.3443708609271523,0.48598130841121495,0.40310077519379844
+factorial_2x3,k4_M0,B,default_rbf,svm_k4_M0_B,Normal,10,0,0,0,10,362,0.0,0.0,0.0
+factorial_2x3,k4_M0,B,default_rbf,svm_k4_M0_B,Polyp,96,79,43,36,53,240,0.5443037974683544,0.4479166666666667,0.49142857142857144
+factorial_2x3,k4_M0,B,default_rbf,svm_k4_M0_B,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
+factorial_2x3,k4_M0,C,cv_selected,svm_k4_M0_C,Adenocarcinoma,131,76,39,37,92,204,0.5131578947368421,0.29770992366412213,0.37681159420289856
+factorial_2x3,k4_M0,C,cv_selected,svm_k4_M0_C,High-grade IN,20,32,5,27,15,325,0.15625,0.25,0.19230769230769232
+factorial_2x3,k4_M0,C,cv_selected,svm_k4_M0_C,Low-grade IN,107,118,56,62,51,203,0.4745762711864407,0.5233644859813084,0.49777777777777776
+factorial_2x3,k4_M0,C,cv_selected,svm_k4_M0_C,Normal,10,46,6,40,4,322,0.13043478260869565,0.6,0.21428571428571427
+factorial_2x3,k4_M0,C,cv_selected,svm_k4_M0_C,Polyp,96,75,59,16,37,260,0.7866666666666666,0.6145833333333334,0.6900584795321637
+factorial_2x3,k4_M0,C,cv_selected,svm_k4_M0_C,Serrated adenoma,8,25,1,24,7,340,0.04,0.125,0.06060606060606061
+factorial_2x3,k4_M0,C,default_rbf,svm_k4_M0_C,Adenocarcinoma,131,122,67,55,64,186,0.5491803278688525,0.5114503816793893,0.5296442687747036
+factorial_2x3,k4_M0,C,default_rbf,svm_k4_M0_C,High-grade IN,20,0,0,0,20,352,0.0,0.0,0.0
+factorial_2x3,k4_M0,C,default_rbf,svm_k4_M0_C,Low-grade IN,107,167,73,94,34,171,0.437125748502994,0.6822429906542056,0.5328467153284672
+factorial_2x3,k4_M0,C,default_rbf,svm_k4_M0_C,Normal,10,0,0,0,10,362,0.0,0.0,0.0
+factorial_2x3,k4_M0,C,default_rbf,svm_k4_M0_C,Polyp,96,83,63,20,33,256,0.7590361445783133,0.65625,0.7039106145251397
+factorial_2x3,k4_M0,C,default_rbf,svm_k4_M0_C,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
+factorial_2x3,k4_M1,B,cv_selected,svm_k4_M1_B,Adenocarcinoma,131,95,43,52,88,189,0.45263157894736844,0.3282442748091603,0.3805309734513274
+factorial_2x3,k4_M1,B,cv_selected,svm_k4_M1_B,High-grade IN,20,23,1,22,19,330,0.043478260869565216,0.05,0.046511627906976744
+factorial_2x3,k4_M1,B,cv_selected,svm_k4_M1_B,Low-grade IN,107,74,29,45,78,220,0.3918918918918919,0.27102803738317754,0.32044198895027626
+factorial_2x3,k4_M1,B,cv_selected,svm_k4_M1_B,Normal,10,48,6,42,4,320,0.125,0.6,0.20689655172413793
+factorial_2x3,k4_M1,B,cv_selected,svm_k4_M1_B,Polyp,96,103,43,60,53,216,0.4174757281553398,0.4479166666666667,0.4321608040201005
+factorial_2x3,k4_M1,B,cv_selected,svm_k4_M1_B,Serrated adenoma,8,29,0,29,8,335,0.0,0.0,0.0
+factorial_2x3,k4_M1,B,default_rbf,svm_k4_M1_B,Adenocarcinoma,131,213,88,125,43,116,0.4131455399061033,0.6717557251908397,0.5116279069767442
+factorial_2x3,k4_M1,B,default_rbf,svm_k4_M1_B,High-grade IN,20,0,0,0,20,352,0.0,0.0,0.0
+factorial_2x3,k4_M1,B,default_rbf,svm_k4_M1_B,Low-grade IN,107,106,42,64,65,201,0.39622641509433965,0.3925233644859813,0.39436619718309857
+factorial_2x3,k4_M1,B,default_rbf,svm_k4_M1_B,Normal,10,0,0,0,10,362,0.0,0.0,0.0
+factorial_2x3,k4_M1,B,default_rbf,svm_k4_M1_B,Polyp,96,53,22,31,74,245,0.41509433962264153,0.22916666666666666,0.2953020134228188
+factorial_2x3,k4_M1,B,default_rbf,svm_k4_M1_B,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
+factorial_2x3,k4_M1,C,cv_selected,svm_k4_M1_C,Adenocarcinoma,131,60,31,29,100,212,0.5166666666666667,0.2366412213740458,0.32460732984293195
+factorial_2x3,k4_M1,C,cv_selected,svm_k4_M1_C,High-grade IN,20,43,4,39,16,313,0.09302325581395349,0.2,0.12698412698412698
+factorial_2x3,k4_M1,C,cv_selected,svm_k4_M1_C,Low-grade IN,107,95,48,47,59,218,0.5052631578947369,0.4485981308411215,0.4752475247524752
+factorial_2x3,k4_M1,C,cv_selected,svm_k4_M1_C,Normal,10,49,5,44,5,318,0.10204081632653061,0.5,0.1694915254237288
+factorial_2x3,k4_M1,C,cv_selected,svm_k4_M1_C,Polyp,96,80,56,24,40,252,0.7,0.5833333333333334,0.6363636363636364
+factorial_2x3,k4_M1,C,cv_selected,svm_k4_M1_C,Serrated adenoma,8,45,1,44,7,320,0.022222222222222223,0.125,0.03773584905660377
+factorial_2x3,k4_M1,C,default_rbf,svm_k4_M1_C,Adenocarcinoma,131,129,75,54,56,187,0.5813953488372093,0.5725190839694656,0.5769230769230769
+factorial_2x3,k4_M1,C,default_rbf,svm_k4_M1_C,High-grade IN,20,1,0,1,20,351,0.0,0.0,0.0
+factorial_2x3,k4_M1,C,default_rbf,svm_k4_M1_C,Low-grade IN,107,162,69,93,38,172,0.42592592592592593,0.6448598130841121,0.5130111524163569
+factorial_2x3,k4_M1,C,default_rbf,svm_k4_M1_C,Normal,10,0,0,0,10,362,0.0,0.0,0.0
+factorial_2x3,k4_M1,C,default_rbf,svm_k4_M1_C,Polyp,96,80,57,23,39,253,0.7125,0.59375,0.6477272727272727
+factorial_2x3,k4_M1,C,default_rbf,svm_k4_M1_C,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
+factorial_2x3,k4_M2,B,cv_selected,svm_k4_M2_B,Adenocarcinoma,131,98,47,51,84,190,0.47959183673469385,0.35877862595419846,0.4104803493449782
+factorial_2x3,k4_M2,B,cv_selected,svm_k4_M2_B,High-grade IN,20,41,3,38,17,314,0.07317073170731707,0.15,0.09836065573770492
+factorial_2x3,k4_M2,B,cv_selected,svm_k4_M2_B,Low-grade IN,107,88,32,56,75,209,0.36363636363636365,0.29906542056074764,0.3282051282051282
+factorial_2x3,k4_M2,B,cv_selected,svm_k4_M2_B,Normal,10,49,1,48,9,314,0.02040816326530612,0.1,0.03389830508474576
+factorial_2x3,k4_M2,B,cv_selected,svm_k4_M2_B,Polyp,96,70,26,44,70,232,0.37142857142857144,0.2708333333333333,0.3132530120481928
+factorial_2x3,k4_M2,B,cv_selected,svm_k4_M2_B,Serrated adenoma,8,26,1,25,7,339,0.038461538461538464,0.125,0.058823529411764705
+factorial_2x3,k4_M2,B,default_rbf,svm_k4_M2_B,Adenocarcinoma,131,203,89,114,42,127,0.43842364532019706,0.6793893129770993,0.5329341317365269
+factorial_2x3,k4_M2,B,default_rbf,svm_k4_M2_B,High-grade IN,20,0,0,0,20,352,0.0,0.0,0.0
+factorial_2x3,k4_M2,B,default_rbf,svm_k4_M2_B,Low-grade IN,107,97,43,54,64,211,0.44329896907216493,0.40186915887850466,0.4215686274509804
+factorial_2x3,k4_M2,B,default_rbf,svm_k4_M2_B,Normal,10,0,0,0,10,362,0.0,0.0,0.0
+factorial_2x3,k4_M2,B,default_rbf,svm_k4_M2_B,Polyp,96,72,41,31,55,245,0.5694444444444444,0.4270833333333333,0.4880952380952381
+factorial_2x3,k4_M2,B,default_rbf,svm_k4_M2_B,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
+factorial_2x3,k4_M2,C,cv_selected,svm_k4_M2_C,Adenocarcinoma,131,68,33,35,98,206,0.4852941176470588,0.25190839694656486,0.3316582914572864
+factorial_2x3,k4_M2,C,cv_selected,svm_k4_M2_C,High-grade IN,20,31,3,28,17,324,0.0967741935483871,0.15,0.11764705882352941
+factorial_2x3,k4_M2,C,cv_selected,svm_k4_M2_C,Low-grade IN,107,109,52,57,55,208,0.47706422018348627,0.48598130841121495,0.48148148148148145
+factorial_2x3,k4_M2,C,cv_selected,svm_k4_M2_C,Normal,10,42,4,38,6,324,0.09523809523809523,0.4,0.15384615384615385
+factorial_2x3,k4_M2,C,cv_selected,svm_k4_M2_C,Polyp,96,81,59,22,37,254,0.7283950617283951,0.6145833333333334,0.6666666666666666
+factorial_2x3,k4_M2,C,cv_selected,svm_k4_M2_C,Serrated adenoma,8,41,2,39,6,325,0.04878048780487805,0.25,0.08163265306122448
+factorial_2x3,k4_M2,C,default_rbf,svm_k4_M2_C,Adenocarcinoma,131,117,64,53,67,188,0.5470085470085471,0.48854961832061067,0.5161290322580645
+factorial_2x3,k4_M2,C,default_rbf,svm_k4_M2_C,High-grade IN,20,0,0,0,20,352,0.0,0.0,0.0
+factorial_2x3,k4_M2,C,default_rbf,svm_k4_M2_C,Low-grade IN,107,170,68,102,39,163,0.4,0.6355140186915887,0.49097472924187724
+factorial_2x3,k4_M2,C,default_rbf,svm_k4_M2_C,Normal,10,0,0,0,10,362,0.0,0.0,0.0
+factorial_2x3,k4_M2,C,default_rbf,svm_k4_M2_C,Polyp,96,85,62,23,34,253,0.7294117647058823,0.6458333333333334,0.6850828729281768
+factorial_2x3,k4_M2,C,default_rbf,svm_k4_M2_C,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
+sensitivity_seg,k4_M0,A_seg,cv_selected,svm_k4_M0_A_seg,Adenocarcinoma,131,48,18,30,113,211,0.375,0.13740458015267176,0.2011173184357542
+sensitivity_seg,k4_M0,A_seg,cv_selected,svm_k4_M0_A_seg,High-grade IN,20,44,3,41,17,311,0.06818181818181818,0.15,0.09375
+sensitivity_seg,k4_M0,A_seg,cv_selected,svm_k4_M0_A_seg,Low-grade IN,107,58,35,23,72,242,0.603448275862069,0.32710280373831774,0.42424242424242425
+sensitivity_seg,k4_M0,A_seg,cv_selected,svm_k4_M0_A_seg,Normal,10,53,5,48,5,314,0.09433962264150944,0.5,0.15873015873015872
+sensitivity_seg,k4_M0,A_seg,cv_selected,svm_k4_M0_A_seg,Polyp,96,69,52,17,44,259,0.7536231884057971,0.5416666666666666,0.6303030303030303
+sensitivity_seg,k4_M0,A_seg,cv_selected,svm_k4_M0_A_seg,Serrated adenoma,8,100,2,98,6,266,0.02,0.25,0.037037037037037035
+sensitivity_seg,k4_M0,A_seg,default_rbf,svm_k4_M0_A_seg,Adenocarcinoma,131,129,60,69,71,172,0.46511627906976744,0.4580152671755725,0.46153846153846156
+sensitivity_seg,k4_M0,A_seg,default_rbf,svm_k4_M0_A_seg,High-grade IN,20,1,0,1,20,351,0.0,0.0,0.0
+sensitivity_seg,k4_M0,A_seg,default_rbf,svm_k4_M0_A_seg,Low-grade IN,107,153,66,87,41,178,0.43137254901960786,0.616822429906542,0.5076923076923077
+sensitivity_seg,k4_M0,A_seg,default_rbf,svm_k4_M0_A_seg,Normal,10,0,0,0,10,362,0.0,0.0,0.0
+sensitivity_seg,k4_M0,A_seg,default_rbf,svm_k4_M0_A_seg,Polyp,96,89,62,27,34,249,0.6966292134831461,0.6458333333333334,0.6702702702702703
+sensitivity_seg,k4_M0,A_seg,default_rbf,svm_k4_M0_A_seg,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
+sensitivity_seg,k4_M0,C_seg,cv_selected,svm_k4_M0_C_seg,Adenocarcinoma,131,64,25,39,106,202,0.390625,0.19083969465648856,0.2564102564102564
+sensitivity_seg,k4_M0,C_seg,cv_selected,svm_k4_M0_C_seg,High-grade IN,20,41,3,38,17,314,0.07317073170731707,0.15,0.09836065573770492
+sensitivity_seg,k4_M0,C_seg,cv_selected,svm_k4_M0_C_seg,Low-grade IN,107,105,54,51,53,214,0.5142857142857142,0.5046728971962616,0.5094339622641509
+sensitivity_seg,k4_M0,C_seg,cv_selected,svm_k4_M0_C_seg,Normal,10,47,2,45,8,317,0.0425531914893617,0.2,0.07017543859649122
+sensitivity_seg,k4_M0,C_seg,cv_selected,svm_k4_M0_C_seg,Polyp,96,65,49,16,47,260,0.7538461538461538,0.5104166666666666,0.6086956521739131
+sensitivity_seg,k4_M0,C_seg,cv_selected,svm_k4_M0_C_seg,Serrated adenoma,8,50,0,50,8,314,0.0,0.0,0.0
+sensitivity_seg,k4_M0,C_seg,default_rbf,svm_k4_M0_C_seg,Adenocarcinoma,131,130,65,65,66,176,0.5,0.4961832061068702,0.49808429118773945
+sensitivity_seg,k4_M0,C_seg,default_rbf,svm_k4_M0_C_seg,High-grade IN,20,2,0,2,20,350,0.0,0.0,0.0
+sensitivity_seg,k4_M0,C_seg,default_rbf,svm_k4_M0_C_seg,Low-grade IN,107,161,68,93,39,172,0.422360248447205,0.6355140186915887,0.5074626865671642
+sensitivity_seg,k4_M0,C_seg,default_rbf,svm_k4_M0_C_seg,Normal,10,0,0,0,10,362,0.0,0.0,0.0
+sensitivity_seg,k4_M0,C_seg,default_rbf,svm_k4_M0_C_seg,Polyp,96,79,57,22,39,254,0.7215189873417721,0.59375,0.6514285714285715
+sensitivity_seg,k4_M0,C_seg,default_rbf,svm_k4_M0_C_seg,Serrated adenoma,8,0,0,0,8,364,0.0,0.0,0.0
