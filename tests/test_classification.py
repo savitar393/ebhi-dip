@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -11,16 +12,21 @@ from sklearn.preprocessing import StandardScaler
 
 from ebhi_dip.classification import (
     ALL_FEATURE_SETS,
+    CLASSIFICATION_2X3_DIR_REL,
     DECISION_PARITY_ATOL,
+    MODELS_CV_2X3_DIR_REL,
     PRIMARY_FEATURE_SETS,
+    SHARED_APPEARANCE_METHOD,
     apply_standard_scaler,
     classification_metrics,
     confusion_matrix_table,
+    cv_selection_key_for_svm,
     export_svm_artifact,
     feature_columns_for_set,
     fit_standard_scaler,
     fit_svm_model,
     load_classification_feature_frame,
+    load_shared_appearance_frame,
     load_svm_artifact,
     per_category_classification_table,
     predict_from_svm_artifact,
@@ -28,6 +34,8 @@ from ebhi_dip.classification import (
     verify_svm_artifact_parity,
 )
 from ebhi_dip.dataset import EXPECTED_CATEGORIES
+from ebhi_dip.features import APPEARANCE_FEATURE_NAMES, COMPARISON_2X3_METHODS
+from ebhi_dip.provenance import sha256_bytes
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -168,3 +176,136 @@ def test_saved_stage07_artifacts_integrity_and_parity() -> None:
             & pred_df["model_variant"].eq("selected_best")
         ].sort_values("sample_id")
         assert np.array_equal(preds, stored_preds["predicted_category"].to_numpy(dtype=object))
+
+
+def test_cv_selection_key_ignores_val_metrics() -> None:
+    high_cv_low_val = {
+        "cv_macro_f1": 0.4500,
+        "cv_balanced_accuracy": 0.4400,
+        "cv_accuracy": 0.5800,
+        "cv_fold_macro_f1_mean": 0.4450,
+        "val_macro_f1": 0.1000,
+        "val_balanced_accuracy": 0.1000,
+        "val_accuracy": 0.1000,
+        "kernel": "rbf",
+        "C": 10.0,
+        "gamma": "0.01",
+        "class_weight": "balanced",
+    }
+    low_cv_high_val = {
+        "cv_macro_f1": 0.4000,
+        "cv_balanced_accuracy": 0.4000,
+        "cv_accuracy": 0.5500,
+        "cv_fold_macro_f1_mean": 0.4000,
+        "val_macro_f1": 0.9900,
+        "val_balanced_accuracy": 0.9900,
+        "val_accuracy": 0.9900,
+        "kernel": "linear",
+        "C": 0.1,
+        "gamma": "scale",
+        "class_weight": "none",
+    }
+    assert cv_selection_key_for_svm(high_cv_low_val) > cv_selection_key_for_svm(low_cv_high_val)
+
+    tie_linear = {**high_cv_low_val, "kernel": "linear"}
+    tie_smaller_c = {**high_cv_low_val, "C": 1.0}
+    assert cv_selection_key_for_svm(tie_linear) > cv_selection_key_for_svm(high_cv_low_val)
+    assert cv_selection_key_for_svm(tie_smaller_c) > cv_selection_key_for_svm(high_cv_low_val)
+
+
+def test_load_shared_appearance_frame_excludes_test() -> None:
+    train_app, val_app, split_sha = load_shared_appearance_frame(REPO_ROOT)
+    assert len(train_app) == 1535
+    assert len(val_app) == 372
+    assert set(train_app["split"]) == {"train"}
+    assert set(val_app["split"]) == {"val"}
+    assert set(train_app["sample_id"]).isdisjoint(set(val_app["sample_id"]))
+    assert set(train_app["group_id"]).isdisjoint(set(val_app["group_id"]))
+    assert all(col in train_app.columns for col in APPEARANCE_FEATURE_NAMES)
+    assert len(split_sha) == 64
+
+
+def test_saved_stage07_2x3_artifacts_leakfree_and_parity() -> None:
+    cls_2x3_dir = REPO_ROOT / CLASSIFICATION_2X3_DIR_REL
+    manifest_path = cls_2x3_dir / "classification_2x3_manifest.json"
+    assert manifest_path.is_file()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    assert manifest["schema_version"] == "svm-classification-2x3-v2"
+    assert tuple(manifest["methods_2x3"]) == COMPARISON_2X3_METHODS
+    assert manifest["cohort_counts"]["test_images_touched"] == 0
+    assert manifest["cohort_counts"]["test_labels_accessed"] is False
+    assert manifest["input_artifact_sha256"]["legacy_classification_manifest_v1"] == sha256_bytes(
+        REPO_ROOT / "results/classification/classification_manifest.json"
+    )
+
+    grid_df = pd.read_csv(cls_2x3_dir / "svm_2x3_grid_results.csv")
+    summary_df = pd.read_csv(cls_2x3_dir / "svm_2x3_selected_summary.csv")
+    per_cat_df = pd.read_csv(cls_2x3_dir / "svm_2x3_per_category_val.csv")
+    seg_cls_df = pd.read_csv(cls_2x3_dir / "svm_2x3_segmentation_vs_classification.csv")
+    pred_df = pd.read_csv(cls_2x3_dir / "svm_2x3_val_predictions.csv")
+
+    assert len(grid_df) == 15 * 32
+    assert len(summary_df) == 15 * 2
+    assert set(per_cat_df["category"]) == set(EXPECTED_CATEGORIES)
+    assert set(pred_df["split"]) == {"val"}
+    assert len(seg_cls_df) == 12
+    assert set(seg_cls_df["method"]) == set(COMPARISON_2X3_METHODS)
+    assert set(seg_cls_df["feature_set"]) == {"B", "C"}
+
+    # Assert hyperparameter selection for every combination is invariant to masking val_* columns
+    for (_, _), grp in grid_df.groupby(["method", "feature_set"], sort=False):
+        sel = grp.loc[grp["is_selected_best"]]
+        assert len(sel) == 1
+        sel_row = sel.iloc[0]
+        masked_rows = [
+            {k: (-999.0 if str(k).startswith("val_") else v) for k, v in rec.items()}
+            for rec in grp.to_dict("records")
+        ]
+        best_masked = max(masked_rows, key=cv_selection_key_for_svm)
+        assert (
+            str(sel_row["kernel"]),
+            str(sel_row["class_weight"]),
+            float(sel_row["C"]),
+            str(sel_row["gamma"]),
+        ) == (
+            str(best_masked["kernel"]),
+            str(best_masked["class_weight"]),
+            float(best_masked["C"]),
+            str(best_masked["gamma"]),
+        )
+
+    # Verify all 15 exported cv_selected JSON models match svm_2x3_val_predictions.csv & summary
+    _, val_app, _ = load_shared_appearance_frame(REPO_ROOT)
+    _, val_seg, _ = load_classification_feature_frame(REPO_ROOT, method="k4_M0", segmented=True)
+    val_frames = {m: load_classification_feature_frame(REPO_ROOT, method=m, segmented=False)[1] for m in COMPARISON_2X3_METHODS}
+
+    assert len(manifest["exported_model_files"]) == 15
+    summary_cv = summary_df.loc[summary_df["model_variant"].eq("cv_selected")].set_index("model_id")
+
+    for rel_path in manifest["exported_model_files"]:
+        model_path = REPO_ROOT / rel_path
+        assert model_path.parent == REPO_ROOT / MODELS_CV_2X3_DIR_REL
+        artifact = load_svm_artifact(model_path)
+        assert int(artifact["scaler"]["n_samples_seen"]) == 1535
+
+        method = str(artifact["segmentation_method"])
+        set_name = str(artifact["feature_set"])
+        cols = feature_columns_for_set(set_name)
+        if method == SHARED_APPEARANCE_METHOD:
+            va_df = val_app
+        elif set_name in ("A_seg", "C_seg"):
+            va_df = val_seg
+        else:
+            va_df = val_frames[method]
+
+        preds, _, _ = predict_from_svm_artifact(va_df[list(cols)].to_numpy(dtype=np.float64), artifact)
+        stored_preds = (
+            pred_df.loc[pred_df["model_id"].eq(artifact["model_id"])]
+            .sort_values("sample_id", kind="mergesort")
+            .reset_index(drop=True)
+        )
+        assert np.array_equal(preds, stored_preds["predicted_category"].to_numpy(dtype=object))
+        metrics = classification_metrics(va_df["category"], preds)
+        assert abs(metrics["macro_f1"] - float(summary_cv.loc[artifact["model_id"], "val_macro_f1"])) < 1e-12
+

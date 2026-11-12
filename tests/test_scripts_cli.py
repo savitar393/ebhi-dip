@@ -47,3 +47,13 @@ def test_scripts_refuse_overwrite_by_default_and_verify_split_from_outside_cwd(t
     )
     assert "2226 samples" in out
     assert "353 groups" in out
+
+
+def test_stage06_and_stage07_2x3_scripts_refuse_overwrite_by_default() -> None:
+    for script_name in ("extract_features.py", "evaluate_svm_val.py"):
+        spec = importlib.util.spec_from_file_location(f"_cli_{script_name[:-3]}", SCRIPTS_DIR / script_name)
+        assert spec is not None and spec.loader is not None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        with pytest.raises(FileExistsError, match="Refusing to overwrite"):
+            mod.main(["--project-root", str(REPO_ROOT)])

@@ -11,6 +11,7 @@ import pytest
 from ebhi_dip.dataset import load_split_manifest
 from ebhi_dip.features import (
     APPEARANCE_FEATURE_NAMES,
+    COMPARISON_2X3_METHODS,
     FEATURE_NAMES,
     MORPHOLOGY_FEATURE_NAMES,
     SEGMENTED_APPEARANCE_FEATURE_NAMES,
@@ -22,10 +23,12 @@ from ebhi_dip.features import (
     extract_masked_appearance_features,
     extract_morphology_features,
     feature_manifest,
+    feature_manifest_2x3,
     morphology_diagnostics,
     segmented_feature_manifest,
     validate_feature_table,
 )
+from ebhi_dip.provenance import sha256_bytes
 from ebhi_dip.paths import has_raw_dataset
 from ebhi_dip.segmentation import predict_mask
 
@@ -264,3 +267,70 @@ def test_build_segmented_feature_tables_parity_with_predict_mask() -> None:
     assert manifest["source_method"] == "k4_M0"
     assert manifest["split_sha256"] == tables.split_sha256
     assert manifest["sample_counts"] == {"val": 1}
+
+
+@pytest.mark.skipif(not has_raw_dataset(REPO_ROOT), reason="EBHI-SEG raw dataset is unavailable.")
+def test_build_feature_tables_2x3_parity_and_set_a_invariance() -> None:
+    split_df = load_split_manifest(REPO_ROOT)
+    sample = split_df.loc[split_df["split"].eq("val")].iloc[0]
+    tables = build_feature_tables(
+        REPO_ROOT,
+        methods=COMPARISON_2X3_METHODS,
+        splits=("val",),
+        sample_ids=[sample["sample_id"]],
+    )
+
+    assert set(tables.combined) == {"otsu_M0", "otsu_M1", "otsu_M2", "k4_M0", "k4_M1", "k4_M2"}
+    assert tables.diagnostics["method"].nunique() == 6
+
+    from ebhi_dip.dataset import load_rgb
+    from ebhi_dip.paths import resolve_manifest_path
+
+    image = load_rgb(resolve_manifest_path(REPO_ROOT, sample["image_path"]))
+    app_row = tables.appearance.iloc[0]
+    for method in COMPARISON_2X3_METHODS:
+        validate_feature_table(tables.combined[method])
+        row = tables.combined[method].iloc[0]
+        for col in APPEARANCE_FEATURE_NAMES:
+            assert row[col] == pytest.approx(float(app_row[col]), abs=0.0)
+        expected = extract_morphology_features(predict_mask(image, method, REPO_ROOT))
+        for name, value in expected.items():
+            assert row[name] == pytest.approx(value, abs=1e-12)
+
+    m2x3 = feature_manifest_2x3(tables, REPO_ROOT)
+    assert m2x3["schema_version"] == "feature-extraction-2x3-v2"
+    assert tuple(m2x3["methods"]) == COMPARISON_2X3_METHODS
+
+
+def test_saved_stage06_2x3_artifacts_and_preserved_v1_integrity() -> None:
+    import json
+
+    feat_dir = REPO_ROOT / "results/features"
+    manifest_2x3_path = feat_dir / "feature_manifest_2x3.json"
+    assert manifest_2x3_path.is_file()
+    manifest_2x3 = json.loads(manifest_2x3_path.read_text(encoding="utf-8"))
+    assert manifest_2x3["schema_version"] == "feature-extraction-2x3-v2"
+    assert tuple(manifest_2x3["methods"]) == COMPARISON_2X3_METHODS
+
+    # Preserved v1 manifest and shared appearance must remain exact
+    manifest_v1_path = feat_dir / "feature_manifest.json"
+    assert manifest_v1_path.is_file()
+    assert sha256_bytes(manifest_v1_path) == manifest_2x3["artifact_sha256"]["legacy_feature_manifest_v1"]
+
+    app_df = pd.read_csv(feat_dir / "appearance.csv").sort_values("sample_id", kind="mergesort").reset_index(drop=True)
+    assert len(app_df) == 2226
+    diag_2x3 = pd.read_csv(feat_dir / "morphology_diagnostics_2x3.csv")
+    assert len(diag_2x3) == 2226 * 6
+    assert set(diag_2x3["method"]) == set(COMPARISON_2X3_METHODS)
+
+    app_mat = app_df[list(APPEARANCE_FEATURE_NAMES)].to_numpy(dtype=np.float64)
+    for method in COMPARISON_2X3_METHODS:
+        m_df = (
+            pd.read_csv(feat_dir / f"features_{method}.csv")
+            .sort_values("sample_id", kind="mergesort")
+            .reset_index(drop=True)
+        )
+        assert len(m_df) == 2226
+        validate_feature_table(m_df)
+        assert np.abs(m_df[list(APPEARANCE_FEATURE_NAMES)].to_numpy(dtype=np.float64) - app_mat).max() == 0.0
+

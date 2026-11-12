@@ -8,7 +8,7 @@ Segmented sets A_seg (10) and C_seg (29): appearance computed inside one predict
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 import platform
@@ -24,6 +24,7 @@ from skimage.measure import label, regionprops
 
 from ebhi_dip.dataset import EXPECTED_CATEGORIES, load_rgb, load_split_manifest
 from ebhi_dip.paths import resolve_manifest_path, verify_frozen_split
+from ebhi_dip.provenance import sha256_bytes
 from ebhi_dip.segmentation import (
     SUPPORTED_METHODS,
     _verify_postprocessing_provenance,
@@ -85,6 +86,14 @@ GLCM_ANGLES: tuple[float, ...] = (0.0, np.pi / 4.0, np.pi / 2.0, 3.0 * np.pi / 4
 GLCM_PROPERTIES: tuple[str, ...] = ("contrast", "homogeneity", "energy", "correlation")
 
 DEFAULT_FEATURE_METHODS: tuple[str, ...] = ("otsu_M0", "otsu_M2", "k4_M0", "k4_M1")
+COMPARISON_2X3_METHODS: tuple[str, ...] = (
+    "otsu_M0",
+    "otsu_M1",
+    "otsu_M2",
+    "k4_M0",
+    "k4_M1",
+    "k4_M2",
+)
 PRIMARY_FEATURE_METHOD: str = "k4_M0"
 DEFAULT_FEATURE_SPLITS: tuple[str, ...] = ("train", "val", "test")
 
@@ -788,6 +797,31 @@ def validate_feature_table(
     return table
 
 
+def _versions_payload() -> dict[str, str]:
+    return {
+        "python": platform.python_version(),
+        "numpy": np.__version__,
+        "pandas": pd.__version__,
+        "opencv": cv2.__version__,
+        "scipy": scipy.__version__,
+        "scikit_image": skimage.__version__,
+    }
+
+
+def _shared_morphology_definition() -> dict[str, object]:
+    return {
+        "connectivity": 8,
+        "edge_fraction": "foreground pixels in border-touching components / total foreground",
+        "area_normalization": "component area / image area",
+        "perimeter_normalization": "component perimeter / sqrt(image area)",
+        "circularity": "4*pi*area / perimeter^2; zero when perimeter is zero",
+        "eccentricity": "skimage.measure.regionprops eccentricity",
+        "solidity": "skimage.measure.regionprops solidity",
+        "summaries": ["mean", "population_std", "median"],
+        "empty_mask_policy": "all numeric features zero, mask_is_empty=1",
+    }
+
+
 def feature_manifest(
     tables: FeatureTables,
     project_root: str | Path,
@@ -837,28 +871,49 @@ def feature_manifest(
             "glcm_normalized": True,
             "glcm_aggregation": "mean over the eight distance/angle pairs",
         },
-        "morphology_definition": {
-            "connectivity": 8,
-            "edge_fraction": "foreground pixels in border-touching components / total foreground",
-            "area_normalization": "component area / image area",
-            "perimeter_normalization": "component perimeter / sqrt(image area)",
-            "circularity": "4*pi*area / perimeter^2; zero when perimeter is zero",
-            "eccentricity": "skimage.measure.regionprops eccentricity",
-            "solidity": "skimage.measure.regionprops solidity",
-            "summaries": ["mean", "population_std", "median"],
-            "empty_mask_policy": "all numeric features zero, mask_is_empty=1",
-        },
+        "morphology_definition": _shared_morphology_definition(),
         "sample_counts": sample_counts,
         "empty_masks_by_method": empty_by_method,
         "zero_perimeter_components_by_method": zero_perimeter_by_method,
-        "versions": {
-            "python": platform.python_version(),
-            "numpy": np.__version__,
-            "pandas": pd.__version__,
-            "opencv": cv2.__version__,
-            "scipy": scipy.__version__,
-            "scikit_image": skimage.__version__,
-        },
+        "versions": _versions_payload(),
+    }
+
+
+def feature_manifest_2x3(
+    tables: FeatureTables,
+    project_root: str | Path,
+    primary_method: str = PRIMARY_FEATURE_METHOD,
+    preserved_files: Mapping[str, str] | None = None,
+    parity_max_abs_diff: Mapping[str, float] | None = None,
+) -> dict[str, object]:
+    """Build a JSON-serializable manifest for the complete 2x3 feature comparison cohort."""
+    base = feature_manifest(tables, project_root, primary_method=primary_method)
+    root = Path(project_root).expanduser().resolve()
+    feature_dir = root / "results/features"
+
+    legacy_manifest = feature_dir / "feature_manifest.json"
+    artifact_sha: dict[str, str] = {}
+    app_path = feature_dir / "appearance.csv"
+    if app_path.is_file():
+        artifact_sha["appearance"] = sha256_bytes(app_path)
+    for method in tables.methods:
+        fpath = feature_dir / f"features_{method}.csv"
+        if fpath.is_file():
+            artifact_sha[f"features_{method}"] = sha256_bytes(fpath)
+    if legacy_manifest.is_file():
+        artifact_sha["legacy_feature_manifest_v1"] = sha256_bytes(legacy_manifest)
+
+    return {
+        **base,
+        "schema_version": "feature-extraction-2x3-v2",
+        "protocol": "2x3_factorial_segmentation_morphology_comparison",
+        "segmentation_families": ["otsu", "k4"],
+        "morphology_stages": ["M0", "M1", "M2"],
+        "shared_set_a_artifact": "results/features/appearance.csv",
+        "diagnostics_artifact": "results/features/morphology_diagnostics_2x3.csv",
+        "preserved_existing_artifacts": dict(preserved_files or {}),
+        "parity_max_abs_diff_vs_existing": dict(parity_max_abs_diff or {}),
+        "artifact_sha256": artifact_sha,
     }
 
 

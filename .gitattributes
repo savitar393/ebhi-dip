@@ -2,6 +2,7 @@ data/metadata/split_manifest.csv -text
 configs/otsu_raw.json -text
 configs/segmentation_selection.json -text
 models/*.json -text
+models/cv_2x3/*.json -text
 results/otsu_train.csv -text
 results/otsu_val.csv -text
 results/otsu_morph_val.csv -text
@@ -10,5 +11,7 @@ results/features/*.csv -text
 results/features/*.json -text
 results/classification/*.csv -text
 results/classification/*.json -text
+results/classification_2x3/*.csv -text
+results/classification_2x3/*.json -text
 results/test/*.csv -text
 results/test/*.json -text

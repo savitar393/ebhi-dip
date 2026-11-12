@@ -12,7 +12,7 @@ Stage 07 contract:
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 import json
 from pathlib import Path
@@ -20,6 +20,7 @@ import platform
 
 import numpy as np
 import pandas as pd
+from scipy.stats import pearsonr, spearmanr
 import sklearn
 from sklearn.metrics import (
     accuracy_score,
@@ -33,9 +34,11 @@ from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
+from ebhi_dip.analysis import load_validation_results, summarize_validation_methods
 from ebhi_dip.dataset import EXPECTED_CATEGORIES, load_split_manifest
 from ebhi_dip.features import (
     APPEARANCE_FEATURE_NAMES,
+    COMPARISON_2X3_METHODS,
     DEFAULT_FEATURE_METHODS,
     FEATURE_NAMES,
     METADATA_COLUMNS,
@@ -51,6 +54,10 @@ from ebhi_dip.provenance import sha256_bytes
 PRIMARY_FEATURE_SETS: tuple[str, ...] = ("A", "B", "C")
 SENSITIVITY_FEATURE_SETS: tuple[str, ...] = ("A_seg", "C_seg")
 ALL_FEATURE_SETS: tuple[str, ...] = PRIMARY_FEATURE_SETS + SENSITIVITY_FEATURE_SETS
+
+CLASSIFICATION_2X3_DIR_REL = Path("results/classification_2x3")
+MODELS_CV_2X3_DIR_REL = Path("models/cv_2x3")
+SHARED_APPEARANCE_METHOD: str = "shared_appearance"
 
 SVM_KERNELS: tuple[str, ...] = ("linear", "rbf")
 SVM_CLASS_WEIGHTS: tuple[str, ...] = ("none", "balanced")
@@ -75,6 +82,20 @@ class SvmExperimentOutputs:
     selected_summary: pd.DataFrame
     per_category_val: pd.DataFrame
     comparator_sensitivity: pd.DataFrame
+    val_predictions: pd.DataFrame
+    model_artifacts: dict[str, dict[str, object]]
+    manifest: dict[str, object]
+    split_sha256: str
+
+
+@dataclass(frozen=True)
+class Svm2x3ExperimentOutputs:
+    """Container for the expanded 2x3 CV-selected Stage 07 evaluation without val leakage."""
+
+    grid_results: pd.DataFrame
+    selected_summary: pd.DataFrame
+    per_category_val: pd.DataFrame
+    segmentation_vs_classification: pd.DataFrame
     val_predictions: pd.DataFrame
     model_artifacts: dict[str, dict[str, object]]
     manifest: dict[str, object]
@@ -112,6 +133,65 @@ def _parse_gamma(gamma: str | float) -> str | float:
     return float(text)
 
 
+def _split_train_val_table(
+    table: pd.DataFrame,
+    split_df: pd.DataFrame,
+    source_name: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Validate frozen cohort alignment and return strictly ``train`` and ``val`` frames."""
+    merged_check = table[list(METADATA_COLUMNS)].merge(
+        split_df[list(METADATA_COLUMNS)],
+        on="sample_id",
+        suffixes=("_feat", "_split"),
+        how="outer",
+        validate="one_to_one",
+    )
+    for col in ("category", "group_id", "split"):
+        if not merged_check[f"{col}_feat"].eq(merged_check[f"{col}_split"]).all():
+            raise ValueError(f"Metadata mismatch on column '{col}' in {source_name}.")
+
+    train_df = (
+        table.loc[table["split"].eq("train")]
+        .sort_values("sample_id", kind="mergesort")
+        .reset_index(drop=True)
+    )
+    val_df = (
+        table.loc[table["split"].eq("val")]
+        .sort_values("sample_id", kind="mergesort")
+        .reset_index(drop=True)
+    )
+
+    if len(train_df) != 1535 or len(val_df) != 372:
+        raise ValueError(
+            f"Unexpected train/val row counts in {source_name}: train={len(train_df)}, val={len(val_df)}."
+        )
+    if not set(train_df["sample_id"]).isdisjoint(set(val_df["sample_id"])):
+        raise ValueError("Train and val sample_id sets must be disjoint.")
+    if not set(train_df["group_id"]).isdisjoint(set(val_df["group_id"])):
+        raise ValueError("Train and val group_id sets must be disjoint.")
+    if "test" in set(train_df["split"]) or "test" in set(val_df["split"]):
+        raise RuntimeError("Held-out test split leaked into train/val frames.")
+    return train_df, val_df
+
+
+def load_shared_appearance_frame(
+    project_root: str | Path,
+) -> tuple[pd.DataFrame, pd.DataFrame, str]:
+    """Load strictly ``train`` and ``val`` rows of shared original-image appearance features (Set A)."""
+    root = Path(project_root).expanduser().resolve()
+    split_sha = verify_frozen_split(root)
+    split_df = load_split_manifest(root, verify=False)
+
+    csv_path = root / "results/features/appearance.csv"
+    if not csv_path.is_file():
+        raise FileNotFoundError(f"Missing shared Set A appearance table: {csv_path}")
+
+    table = pd.read_csv(csv_path)
+    validate_feature_table(table, feature_names=APPEARANCE_FEATURE_NAMES, require_method=False)
+    train_df, val_df = _split_train_val_table(table, split_df, csv_path.name)
+    return train_df, val_df, split_sha
+
+
 def load_classification_feature_frame(
     project_root: str | Path,
     method: str = PRIMARY_FEATURE_METHOD,
@@ -139,40 +219,7 @@ def load_classification_feature_frame(
     if not table["method"].eq(method).all():
         raise ValueError(f"Feature table {csv_path.name} contains method values other than {method!r}.")
 
-    # Verify alignment with frozen split_manifest before filtering out held-out test rows
-    merged_check = table[list(METADATA_COLUMNS)].merge(
-        split_df[list(METADATA_COLUMNS)],
-        on="sample_id",
-        suffixes=("_feat", "_split"),
-        how="outer",
-        validate="one_to_one",
-    )
-    for col in ("category", "group_id", "split"):
-        if not merged_check[f"{col}_feat"].eq(merged_check[f"{col}_split"]).all():
-            raise ValueError(f"Metadata mismatch on column '{col}' in {csv_path.name}.")
-
-    train_df = (
-        table.loc[table["split"].eq("train")]
-        .sort_values("sample_id", kind="mergesort")
-        .reset_index(drop=True)
-    )
-    val_df = (
-        table.loc[table["split"].eq("val")]
-        .sort_values("sample_id", kind="mergesort")
-        .reset_index(drop=True)
-    )
-
-    if len(train_df) != 1535 or len(val_df) != 372:
-        raise ValueError(
-            f"Unexpected train/val row counts: train={len(train_df)}, val={len(val_df)}."
-        )
-    if not set(train_df["sample_id"]).isdisjoint(set(val_df["sample_id"])):
-        raise ValueError("Train and val sample_id sets must be disjoint.")
-    if not set(train_df["group_id"]).isdisjoint(set(val_df["group_id"])):
-        raise ValueError("Train and val group_id sets must be disjoint.")
-    if "test" in set(train_df["split"]) or "test" in set(val_df["split"]):
-        raise RuntimeError("Held-out test split leaked into train/val frames.")
-
+    train_df, val_df = _split_train_val_table(table, split_df, csv_path.name)
     return train_df, val_df, split_sha
 
 
@@ -301,7 +348,7 @@ def confusion_matrix_table(
 
 
 def selection_key_for_svm(row: Mapping[str, object]) -> tuple[float, float, float, float, int, float]:
-    """Deterministic model selection rule for Stage 07 validation candidates.
+    """Deterministic model selection rule for legacy Stage 07 v1 validation candidates.
 
     Order of precedence:
     1. Validation Macro F1 rounded to 4 decimals (equal-category primary metric)
@@ -319,6 +366,37 @@ def selection_key_for_svm(row: Mapping[str, object]) -> tuple[float, float, floa
         round(float(row.get("cv_macro_f1", 0.0)), 4),
         kernel_simplicity,
         -float(row["C"]),
+    )
+
+
+def cv_selection_key_for_svm(
+    row: Mapping[str, object],
+) -> tuple[float, float, float, float, int, float, int, int]:
+    """Leak-free model selection rule using strictly 5-fold train StratifiedGroupKFold CV.
+
+    Never reads validation (``val_*``) or held-out test metrics. Order of precedence:
+    1. 5-fold train OOF Macro F1 rounded to 4 decimals (primary CV selection metric)
+    2. 5-fold train OOF Balanced Accuracy rounded to 4 decimals
+    3. 5-fold train OOF Accuracy rounded to 4 decimals
+    4. Mean of per-fold CV Macro F1 rounded to 4 decimals
+    5. Simpler kernel (linear=1 > rbf=0)
+    6. Stronger regularization (-C)
+    7. Coarser RBF gamma ("scale"=2 > "0.01"=1 > "0.1"=0)
+    8. Simpler unweighted loss ("none"=1 > "balanced"=0)
+    """
+    kernel_simplicity = 1 if str(row["kernel"]) == "linear" else 0
+    gamma_str = str(row.get("gamma", "scale"))
+    gamma_rank = 2 if gamma_str == "scale" else (1 if gamma_str == "0.01" else 0)
+    cw_simplicity = 1 if str(row.get("class_weight", "none")) == "none" else 0
+    return (
+        round(float(row["cv_macro_f1"]), 4),
+        round(float(row["cv_balanced_accuracy"]), 4),
+        round(float(row["cv_accuracy"]), 4),
+        round(float(row.get("cv_fold_macro_f1_mean", 0.0)), 4),
+        kernel_simplicity,
+        -float(row["C"]),
+        gamma_rank,
+        cw_simplicity,
     )
 
 
@@ -512,6 +590,7 @@ def _evaluate_grid_for_table(
     feature_set: str,
     feature_names: Sequence[str],
     n_splits: int = CV_FOLDS,
+    selection_key: Callable[[Mapping[str, object]], tuple[object, ...]] = selection_key_for_svm,
 ) -> tuple[pd.DataFrame, dict[str, object], SVC, dict[str, object], dict[str, object]]:
     """Run 5-fold StratifiedGroupKFold on train + validation evaluation for one feature set."""
     cols = list(feature_names)
@@ -548,11 +627,17 @@ def _evaluate_grid_for_table(
                 for gamma in gammas:
                     gamma_str = _format_gamma(gamma)
                     oof_pred = np.empty_like(y_tr)
+                    fold_macro_f1s: list[float] = []
+                    fold_bal_accs: list[float] = []
                     for f_va_idx, Xf_tr, yf_tr, Xf_va in fold_cache:
                         clf_fold = fit_svm_model(
                             Xf_tr, yf_tr, kernel=kernel, C=C, gamma=gamma, class_weight=cw
                         )
-                        oof_pred[f_va_idx] = clf_fold.predict(Xf_va)
+                        fold_pred = clf_fold.predict(Xf_va)
+                        oof_pred[f_va_idx] = fold_pred
+                        fold_m = classification_metrics(y_tr[f_va_idx], fold_pred)
+                        fold_macro_f1s.append(fold_m["macro_f1"])
+                        fold_bal_accs.append(fold_m["balanced_accuracy"])
                     cv_scores = classification_metrics(y_tr, oof_pred)
 
                     clf = fit_svm_model(
@@ -578,7 +663,10 @@ def _evaluate_grid_for_table(
                             "train_balanced_accuracy": tr_scores["balanced_accuracy"],
                             "train_accuracy": tr_scores["accuracy"],
                             "cv_macro_f1": cv_scores["macro_f1"],
+                            "cv_fold_macro_f1_mean": float(np.mean(fold_macro_f1s)),
+                            "cv_fold_macro_f1_std": float(np.std(fold_macro_f1s, ddof=0)),
                             "cv_balanced_accuracy": cv_scores["balanced_accuracy"],
+                            "cv_fold_balanced_accuracy_mean": float(np.mean(fold_bal_accs)),
                             "cv_accuracy": cv_scores["accuracy"],
                             "cv_weighted_f1": cv_scores["weighted_f1"],
                             "val_macro_f1": va_scores["macro_f1"],
@@ -590,7 +678,7 @@ def _evaluate_grid_for_table(
                         }
                     )
 
-    best_row = max(rows, key=selection_key_for_svm)
+    best_row = max(rows, key=selection_key)
     default_row = next(
         r
         for r in rows
@@ -972,6 +1060,491 @@ def run_svm_experiments(
         selected_summary=selected_summary_df,
         per_category_val=per_category_val_df,
         comparator_sensitivity=comparator_sensitivity_df,
+        val_predictions=val_predictions_df,
+        model_artifacts=model_artifacts,
+        manifest=manifest,
+        split_sha256=split_sha,
+    )
+
+
+def _compute_seg_vs_cls_correlations(
+    seg_cls_df: pd.DataFrame,
+) -> dict[str, dict[str, dict[str, float]]]:
+    """Compute Pearson and Spearman correlations across the 6 methods for Set B and Set C."""
+    correlations: dict[str, dict[str, dict[str, float]]] = {}
+    for set_name in ("B", "C"):
+        sub = seg_cls_df.loc[seg_cls_df["feature_set"].eq(set_name)].copy()
+        set_corr: dict[str, dict[str, float]] = {}
+        for seg_col in ("seg_val_mean_category_dice", "seg_val_mean_category_iou"):
+            for cls_col in (
+                "cv_macro_f1",
+                "val_macro_f1",
+                "val_balanced_accuracy",
+                "val_accuracy",
+            ):
+                r_res = pearsonr(sub[seg_col], sub[cls_col])
+                rho_res = spearmanr(sub[seg_col], sub[cls_col])
+                set_corr[f"{seg_col}_vs_{cls_col}"] = {
+                    "pearson_r": float(r_res.statistic),
+                    "pearson_pvalue": float(r_res.pvalue),
+                    "spearman_rho": float(rho_res.statistic),
+                    "spearman_pvalue": float(rho_res.pvalue),
+                }
+        correlations[set_name] = set_corr
+    return correlations
+
+
+def run_svm_2x3_experiments(
+    project_root: str | Path,
+    methods: Sequence[str] = COMPARISON_2X3_METHODS,
+    primary_method: str = PRIMARY_FEATURE_METHOD,
+) -> Svm2x3ExperimentOutputs:
+    """Execute the fair 2x3 CV-selected Stage 07 evaluation on train/val without test leakage.
+
+    Key protocol properties:
+    - Keeps Set A shared (segmentation-independent) across all six configurations.
+    - Evaluates Set B (19 morphology features) and Set C (29 combined features) across
+      all six configurations ({otsu, k4} x {M0, M1, M2}), plus k4_M0 A_seg/C_seg sensitivity.
+    - Selects hyperparameters identically for each combination using only train 5-fold
+      StratifiedGroupKFold Macro-F1 (fitting scalers inside each fold).
+    - Never uses val or test metrics for hyperparameter selection or fitting.
+    """
+    root = Path(project_root).expanduser().resolve()
+    split_sha = verify_frozen_split(root)
+    feature_dir = root / "results/features"
+
+    train_app, val_app, _ = load_shared_appearance_frame(root)
+    method_frames: dict[str, tuple[pd.DataFrame, pd.DataFrame]] = {}
+    set_a_cols = list(APPEARANCE_FEATURE_NAMES)
+    tr_app_mat = train_app[set_a_cols].to_numpy(dtype=np.float64)
+    va_app_mat = val_app[set_a_cols].to_numpy(dtype=np.float64)
+
+    for method in methods:
+        tr_m, va_m, _ = load_classification_feature_frame(root, method=method, segmented=False)
+        max_tr_diff = float(np.max(np.abs(tr_m[set_a_cols].to_numpy(dtype=np.float64) - tr_app_mat)))
+        max_va_diff = float(np.max(np.abs(va_m[set_a_cols].to_numpy(dtype=np.float64) - va_app_mat)))
+        if max_tr_diff >= 1e-12 or max_va_diff >= 1e-12:
+            raise ValueError(
+                f"Set A mismatch between appearance.csv and features_{method}.csv "
+                f"(train={max_tr_diff:.3e}, val={max_va_diff:.3e})."
+            )
+        method_frames[method] = (tr_m, va_m)
+
+    train_seg, val_seg, _ = load_classification_feature_frame(
+        root, method=primary_method, segmented=True
+    )
+
+    specs: list[tuple[str, str, str, pd.DataFrame, pd.DataFrame]] = [
+        ("shared_appearance", SHARED_APPEARANCE_METHOD, "A", train_app, val_app),
+    ]
+    for method in methods:
+        tr_m, va_m = method_frames[method]
+        specs.append(("factorial_2x3", method, "B", tr_m, va_m))
+        specs.append(("factorial_2x3", method, "C", tr_m, va_m))
+    specs.extend(
+        [
+            ("sensitivity_A_seg_C_seg", primary_method, "A_seg", train_seg, val_seg),
+            ("sensitivity_A_seg_C_seg", primary_method, "C_seg", train_seg, val_seg),
+        ]
+    )
+
+    grid_frames: list[pd.DataFrame] = []
+    summary_rows: list[dict[str, object]] = []
+    per_cat_frames: list[pd.DataFrame] = []
+    prediction_frames: list[pd.DataFrame] = []
+    model_artifacts: dict[str, dict[str, object]] = {}
+    parity_checks: dict[str, dict[str, float | bool]] = {}
+
+    for track, method, set_name, tr_df, va_df in specs:
+        cols = feature_columns_for_set(set_name)
+        grid_df, scaler_payload, best_clf, best_row, default_row = _evaluate_grid_for_table(
+            tr_df,
+            va_df,
+            method=method,
+            feature_set=set_name,
+            feature_names=cols,
+            selection_key=cv_selection_key_for_svm,
+        )
+        grid_df.insert(0, "track", track)
+        grid_frames.append(grid_df)
+
+        # Explicitly confirm CV selection does not depend on val metrics.
+        masked_rows = [
+            {k: (-999.0 if str(k).startswith("val_") else v) for k, v in rec.items()}
+            for rec in grid_df.to_dict("records")
+        ]
+        masked_best = max(masked_rows, key=cv_selection_key_for_svm)
+        assert (
+            str(masked_best["kernel"]),
+            str(masked_best["class_weight"]),
+            float(masked_best["C"]),
+            str(masked_best["gamma"]),
+        ) == (
+            str(best_row["kernel"]),
+            str(best_row["class_weight"]),
+            float(best_row["C"]),
+            str(best_row["gamma"]),
+        ), "CV hyperparameter selection unexpectedly touched validation scores."
+
+        X_tr_scaled = apply_standard_scaler(
+            tr_df[list(cols)].to_numpy(dtype=np.float64), scaler_payload
+        )
+        y_tr = tr_df["category"].to_numpy(dtype=object)
+        X_va_raw = va_df[list(cols)].to_numpy(dtype=np.float64)
+        y_va = va_df["category"].to_numpy(dtype=object)
+
+        default_clf = fit_svm_model(
+            X_tr_scaled,
+            y_tr,
+            kernel=str(default_row["kernel"]),
+            C=float(default_row["C"]),
+            gamma=str(default_row["gamma"]),
+            class_weight=str(default_row["class_weight"]),
+        )
+
+        family = method.split("_", 1)[0] if "_" in method else "shared"
+        morph_stage = method.split("_", 1)[1] if "_" in method else "none"
+        if method == SHARED_APPEARANCE_METHOD:
+            family, morph_stage = "shared", "none"
+
+        for variant_name, row_info, clf_obj in (
+            ("default_rbf", default_row, default_clf),
+            ("cv_selected", best_row, best_clf),
+        ):
+            model_id = (
+                "svm_shared_A" if method == SHARED_APPEARANCE_METHOD else f"svm_{method}_{set_name}"
+            )
+            if variant_name == "default_rbf":
+                full_model_id = f"{model_id}_default_rbf"
+            else:
+                full_model_id = model_id
+
+            summary_rows.append(
+                {
+                    "track": track,
+                    "family": family,
+                    "morphology_stage": morph_stage,
+                    "method": method,
+                    "feature_set": set_name,
+                    "n_features": len(cols),
+                    "model_variant": variant_name,
+                    "model_id": full_model_id,
+                    "kernel": str(row_info["kernel"]),
+                    "class_weight": str(row_info["class_weight"]),
+                    "C": float(row_info["C"]),
+                    "gamma": str(row_info["gamma"]),
+                    "train_macro_f1": float(row_info["train_macro_f1"]),
+                    "train_balanced_accuracy": float(row_info["train_balanced_accuracy"]),
+                    "train_accuracy": float(row_info["train_accuracy"]),
+                    "cv_macro_f1": float(row_info["cv_macro_f1"]),
+                    "cv_fold_macro_f1_mean": float(row_info["cv_fold_macro_f1_mean"]),
+                    "cv_fold_macro_f1_std": float(row_info["cv_fold_macro_f1_std"]),
+                    "cv_balanced_accuracy": float(row_info["cv_balanced_accuracy"]),
+                    "cv_fold_balanced_accuracy_mean": float(
+                        row_info["cv_fold_balanced_accuracy_mean"]
+                    ),
+                    "cv_accuracy": float(row_info["cv_accuracy"]),
+                    "val_macro_f1": float(row_info["val_macro_f1"]),
+                    "val_balanced_accuracy": float(row_info["val_balanced_accuracy"]),
+                    "val_accuracy": float(row_info["val_accuracy"]),
+                    "val_weighted_f1": float(row_info["val_weighted_f1"]),
+                    "val_macro_precision": float(row_info["val_macro_precision"]),
+                    "n_support_total": int(row_info["n_support_total"]),
+                }
+            )
+
+            art = export_svm_artifact(
+                model_id=full_model_id,
+                segmentation_method=method,
+                feature_set=set_name,
+                scaler_payload=scaler_payload,
+                clf=clf_obj,
+                split_sha256=split_sha,
+                validation_metrics={
+                    "macro_f1": float(row_info["val_macro_f1"]),
+                    "balanced_accuracy": float(row_info["val_balanced_accuracy"]),
+                    "accuracy": float(row_info["val_accuracy"]),
+                    "weighted_f1": float(row_info["val_weighted_f1"]),
+                    "macro_precision": float(row_info["val_macro_precision"]),
+                },
+                cv_metrics={
+                    "macro_f1": float(row_info["cv_macro_f1"]),
+                    "fold_macro_f1_mean": float(row_info["cv_fold_macro_f1_mean"]),
+                    "fold_macro_f1_std": float(row_info["cv_fold_macro_f1_std"]),
+                    "balanced_accuracy": float(row_info["cv_balanced_accuracy"]),
+                    "accuracy": float(row_info["cv_accuracy"]),
+                },
+            )
+            art["selection_protocol"] = "train-5fold-stratified-group-cv-macro-f1"
+            parity = verify_svm_artifact_parity(X_va_raw, clf_obj, art)
+            parity_checks[full_model_id] = parity
+
+            pred_df = _prediction_rows_for_model(va_df, X_va_raw, art, model_variant=variant_name)
+            pred_df["model_id"] = full_model_id
+            prediction_frames.append(pred_df)
+
+            cat_df = per_category_classification_table(y_va, pred_df["predicted_category"])
+            cat_df.insert(0, "model_id", full_model_id)
+            cat_df.insert(0, "model_variant", variant_name)
+            cat_df.insert(0, "feature_set", set_name)
+            cat_df.insert(0, "method", method)
+            cat_df.insert(0, "track", track)
+            per_cat_frames.append(cat_df)
+
+            if variant_name == "cv_selected":
+                model_artifacts[model_id] = art
+
+    grid_results_df = pd.concat(grid_frames, ignore_index=True)
+    selected_summary_df = pd.DataFrame(summary_rows)
+    per_category_val_df = pd.concat(per_cat_frames, ignore_index=True)
+    val_predictions_df = pd.concat(prediction_frames, ignore_index=True)
+
+    # Link upstream validation segmentation Dice/IoU and morphology diagnostics with downstream classification
+    val_seg_df = load_validation_results(root)
+    seg_macro_val = summarize_validation_methods(val_seg_df)
+    seg_overall_val = val_seg_df.groupby("method", observed=True)[["dice", "iou"]].mean()
+
+    diag_2x3_path = feature_dir / "morphology_diagnostics_2x3.csv"
+    if not diag_2x3_path.is_file():
+        raise FileNotFoundError(
+            f"Missing 2x3 morphology diagnostics file: {diag_2x3_path}. "
+            "Run scripts/extract_features.py --protocol 2x3 first."
+        )
+    diag_df = pd.read_csv(diag_2x3_path)
+    diag_tv = diag_df.loc[diag_df["split"].isin(["train", "val"])].copy()
+    diag_val = diag_df.loc[diag_df["split"].eq("val")].copy()
+    diag_stats_tv = diag_tv.groupby("method", observed=True).agg(
+        train_val_mean_fg_fraction=("foreground_pixels", lambda s: float(s.mean() / (224 * 224))),
+        train_val_mean_component_count=("component_count", "mean"),
+        train_val_zero_perim_pct=(
+            "zero_perimeter_count",
+            lambda s: 100.0 * float(s.sum()) / float(diag_tv.loc[s.index, "component_count"].sum()),
+        ),
+        train_val_mean_edge_fg_fraction=(
+            "edge_foreground_pixels",
+            lambda s: float(
+                (s / diag_tv.loc[s.index, "foreground_pixels"].replace(0, np.nan)).fillna(0.0).mean()
+            ),
+        ),
+    )
+    diag_stats_val = diag_val.groupby("method", observed=True).agg(
+        val_mean_fg_fraction=("foreground_pixels", lambda s: float(s.mean() / (224 * 224))),
+        val_mean_component_count=("component_count", "mean"),
+        val_zero_perim_pct=(
+            "zero_perimeter_count",
+            lambda s: 100.0 * float(s.sum()) / float(diag_val.loc[s.index, "component_count"].sum()),
+        ),
+    )
+
+    shared_a_row = selected_summary_df.loc[
+        selected_summary_df["method"].eq(SHARED_APPEARANCE_METHOD)
+        & selected_summary_df["feature_set"].eq("A")
+        & selected_summary_df["model_variant"].eq("cv_selected")
+    ].iloc[0]
+    shared_a_val_f1 = float(shared_a_row["val_macro_f1"])
+    shared_a_val_acc = float(shared_a_row["val_accuracy"])
+    shared_a_cv_f1 = float(shared_a_row["cv_macro_f1"])
+
+    fact_cv = selected_summary_df.loc[
+        selected_summary_df["track"].eq("factorial_2x3")
+        & selected_summary_df["model_variant"].eq("cv_selected")
+    ].copy()
+    fact_def = selected_summary_df.loc[
+        selected_summary_df["track"].eq("factorial_2x3")
+        & selected_summary_df["model_variant"].eq("default_rbf")
+    ].set_index(["method", "feature_set"])
+
+    b_lookup = fact_cv.loc[fact_cv["feature_set"].eq("B")].set_index("method")
+    c_lookup = fact_cv.loc[fact_cv["feature_set"].eq("C")].set_index("method")
+
+    seg_cls_rows: list[dict[str, object]] = []
+    for _, row in fact_cv.iterrows():
+        m = str(row["method"])
+        s = str(row["feature_set"])
+        def_row = fact_def.loc[(m, s)]
+        seg_row = seg_macro_val.loc[m]
+        ovr_row = seg_overall_val.loc[m]
+        dtv = diag_stats_tv.loc[m]
+        dva = diag_stats_val.loc[m]
+        seg_cls_rows.append(
+            {
+                "family": str(row["family"]),
+                "morphology_stage": str(row["morphology_stage"]),
+                "method": m,
+                "feature_set": s,
+                "n_features": int(row["n_features"]),
+                "model_id": str(row["model_id"]),
+                "seg_val_mean_category_dice": float(seg_row["mean_category_dice"]),
+                "seg_val_mean_category_iou": float(seg_row["mean_category_iou"]),
+                "seg_val_delta_dice_vs_control": float(seg_row["delta_dice_vs_control"]),
+                "seg_val_overall_dice": float(ovr_row["dice"]),
+                "seg_val_overall_iou": float(ovr_row["iou"]),
+                "train_val_mean_fg_fraction": float(dtv["train_val_mean_fg_fraction"]),
+                "train_val_mean_component_count": float(dtv["train_val_mean_component_count"]),
+                "train_val_zero_perim_pct": float(dtv["train_val_zero_perim_pct"]),
+                "train_val_mean_edge_fg_fraction": float(dtv["train_val_mean_edge_fg_fraction"]),
+                "val_mean_fg_fraction": float(dva["val_mean_fg_fraction"]),
+                "val_mean_component_count": float(dva["val_mean_component_count"]),
+                "val_zero_perim_pct": float(dva["val_zero_perim_pct"]),
+                "kernel": str(row["kernel"]),
+                "class_weight": str(row["class_weight"]),
+                "C": float(row["C"]),
+                "gamma": str(row["gamma"]),
+                "cv_macro_f1": float(row["cv_macro_f1"]),
+                "cv_fold_macro_f1_mean": float(row["cv_fold_macro_f1_mean"]),
+                "cv_fold_macro_f1_std": float(row["cv_fold_macro_f1_std"]),
+                "cv_balanced_accuracy": float(row["cv_balanced_accuracy"]),
+                "cv_accuracy": float(row["cv_accuracy"]),
+                "val_macro_f1": float(row["val_macro_f1"]),
+                "val_balanced_accuracy": float(row["val_balanced_accuracy"]),
+                "val_accuracy": float(row["val_accuracy"]),
+                "val_weighted_f1": float(row["val_weighted_f1"]),
+                "default_rbf_val_macro_f1": float(def_row["val_macro_f1"]),
+                "delta_cv_selected_vs_default_rbf_val_macro_f1": (
+                    float(row["val_macro_f1"]) - float(def_row["val_macro_f1"])
+                ),
+                "delta_cv_macro_f1_vs_shared_A": float(row["cv_macro_f1"]) - shared_a_cv_f1,
+                "delta_val_macro_f1_vs_shared_A": float(row["val_macro_f1"]) - shared_a_val_f1,
+                "delta_val_accuracy_vs_shared_A": float(row["val_accuracy"]) - shared_a_val_acc,
+                "delta_val_macro_f1_C_minus_B": (
+                    float(c_lookup.loc[m, "val_macro_f1"]) - float(b_lookup.loc[m, "val_macro_f1"])
+                ),
+                "delta_cv_macro_f1_C_minus_B": (
+                    float(c_lookup.loc[m, "cv_macro_f1"]) - float(b_lookup.loc[m, "cv_macro_f1"])
+                ),
+            }
+        )
+
+    seg_cls_df = pd.DataFrame(seg_cls_rows)
+    seg_cls_correlations = _compute_seg_vs_cls_correlations(seg_cls_df)
+
+    best_set_b_cv = b_lookup.sort_values("cv_macro_f1", ascending=False).iloc[0]
+    best_set_c_cv = c_lookup.sort_values("cv_macro_f1", ascending=False).iloc[0]
+    best_overall_cv = fact_cv.sort_values("cv_macro_f1", ascending=False).iloc[0]
+
+    input_artifact_hashes: dict[str, str] = {
+        "split_manifest": sha256_bytes(root / "data/metadata/split_manifest.csv"),
+        "feature_manifest_2x3": sha256_bytes(feature_dir / "feature_manifest_2x3.json"),
+        "morphology_diagnostics_2x3": sha256_bytes(diag_2x3_path),
+        "segmented_manifest": sha256_bytes(
+            feature_dir / f"feature_manifest_segmented_{primary_method}.json"
+        ),
+        "appearance": sha256_bytes(feature_dir / "appearance.csv"),
+        f"segmented_appearance_{primary_method}": sha256_bytes(
+            feature_dir / f"appearance_segmented_{primary_method}.csv"
+        ),
+        f"features_{primary_method}_segmented": sha256_bytes(
+            feature_dir / f"features_{primary_method}_segmented.csv"
+        ),
+        **{f"features_{m}": sha256_bytes(feature_dir / f"features_{m}.csv") for m in methods},
+    }
+    legacy_cls_manifest = root / "results/classification/classification_manifest.json"
+    if legacy_cls_manifest.is_file():
+        input_artifact_hashes["legacy_classification_manifest_v1"] = sha256_bytes(legacy_cls_manifest)
+
+    manifest: dict[str, object] = {
+        "schema_version": "svm-classification-2x3-v2",
+        "protocol": "2x3_factorial_cv_selected_classification",
+        "protocol_change_note": (
+            "Expands Stage 07 from 4 validation-selected comparators (v1) to all 6 segmentation "
+            "configurations ({otsu, k4} x {M0, M1, M2}) plus shared original-image Set A and "
+            "preserved k4_M0 A_seg/C_seg sensitivity. Every configuration/feature-set combination "
+            "undergoes an identical 32-spec hyperparameter search selected strictly by train 5-fold "
+            "StratifiedGroupKFold Macro-F1 (scalers fitted per fold), with zero validation leakage "
+            "into tuning. Legacy v1 artifacts in results/classification/ and models/svm_*.json are preserved untouched."
+        ),
+        "methods_2x3": list(methods),
+        "primary_reference_method": primary_method,
+        "shared_appearance_method": SHARED_APPEARANCE_METHOD,
+        "sensitivity_feature_sets": list(SENSITIVITY_FEATURE_SETS),
+        "split_sha256": split_sha,
+        "cohort_counts": {
+            "train_images": int(len(train_app)),
+            "train_groups": int(train_app["group_id"].nunique()),
+            "val_images": int(len(val_app)),
+            "val_groups": int(val_app["group_id"].nunique()),
+            "test_images_touched": 0,
+            "test_labels_accessed": False,
+        },
+        "hyperparameter_grid": {
+            "n_candidates_per_combination": int(len(grid_frames[0])),
+            "kernels": list(SVM_KERNELS),
+            "class_weights": list(SVM_CLASS_WEIGHTS),
+            "C_values": list(SVM_C_VALUES),
+            "rbf_gammas": [_format_gamma(g) for g in SVM_RBF_GAMMAS],
+            "cv_scheme": f"{CV_FOLDS}-fold StratifiedGroupKFold on train (group_id); fold-internal StandardScaler",
+        },
+        "selection_rule": (
+            "STRICT TRAIN CV ONLY: cv_macro_f1 (OOF 4 dec) -> cv_balanced_accuracy (4 dec) -> "
+            "cv_accuracy (4 dec) -> cv_fold_macro_f1_mean (4 dec) -> simpler kernel (linear > rbf) -> "
+            "smaller C -> coarser gamma -> class_weight ('none' > 'balanced'). Validation never used for tuning."
+        ),
+        "shared_appearance_baseline": {
+            "model_id": "svm_shared_A",
+            "kernel": str(shared_a_row["kernel"]),
+            "class_weight": str(shared_a_row["class_weight"]),
+            "C": float(shared_a_row["C"]),
+            "gamma": str(shared_a_row["gamma"]),
+            "cv_macro_f1": shared_a_cv_f1,
+            "val_macro_f1": shared_a_val_f1,
+            "val_balanced_accuracy": float(shared_a_row["val_balanced_accuracy"]),
+            "val_accuracy": shared_a_val_acc,
+        },
+        "top_models_by_cv_selection": {
+            "best_set_B_by_cv": {
+                "method": str(b_lookup.sort_values("cv_macro_f1", ascending=False).index[0]),
+                "model_id": str(best_set_b_cv["model_id"]),
+                "kernel": str(best_set_b_cv["kernel"]),
+                "class_weight": str(best_set_b_cv["class_weight"]),
+                "C": float(best_set_b_cv["C"]),
+                "gamma": str(best_set_b_cv["gamma"]),
+                "cv_macro_f1": float(best_set_b_cv["cv_macro_f1"]),
+                "val_macro_f1": float(best_set_b_cv["val_macro_f1"]),
+                "val_balanced_accuracy": float(best_set_b_cv["val_balanced_accuracy"]),
+                "val_accuracy": float(best_set_b_cv["val_accuracy"]),
+            },
+            "best_set_C_by_cv": {
+                "method": str(c_lookup.sort_values("cv_macro_f1", ascending=False).index[0]),
+                "model_id": str(best_set_c_cv["model_id"]),
+                "kernel": str(best_set_c_cv["kernel"]),
+                "class_weight": str(best_set_c_cv["class_weight"]),
+                "C": float(best_set_c_cv["C"]),
+                "gamma": str(best_set_c_cv["gamma"]),
+                "cv_macro_f1": float(best_set_c_cv["cv_macro_f1"]),
+                "val_macro_f1": float(best_set_c_cv["val_macro_f1"]),
+                "val_balanced_accuracy": float(best_set_c_cv["val_balanced_accuracy"]),
+                "val_accuracy": float(best_set_c_cv["val_accuracy"]),
+            },
+            "best_overall_by_cv": {
+                "method": str(best_overall_cv["method"]),
+                "feature_set": str(best_overall_cv["feature_set"]),
+                "model_id": str(best_overall_cv["model_id"]),
+                "cv_macro_f1": float(best_overall_cv["cv_macro_f1"]),
+                "val_macro_f1": float(best_overall_cv["val_macro_f1"]),
+                "val_balanced_accuracy": float(best_overall_cv["val_balanced_accuracy"]),
+                "val_accuracy": float(best_overall_cv["val_accuracy"]),
+            },
+        },
+        "segmentation_vs_classification_correlations": seg_cls_correlations,
+        "exported_model_files": [
+            f"{MODELS_CV_2X3_DIR_REL.as_posix()}/{model_id}.json"
+            for model_id in sorted(model_artifacts)
+        ],
+        "artifact_parity_checks": parity_checks,
+        "input_artifact_sha256": input_artifact_hashes,
+        "versions": {
+            "python": platform.python_version(),
+            "numpy": np.__version__,
+            "pandas": pd.__version__,
+            "scikit_learn": sklearn.__version__,
+        },
+    }
+
+    return Svm2x3ExperimentOutputs(
+        grid_results=grid_results_df,
+        selected_summary=selected_summary_df,
+        per_category_val=per_category_val_df,
+        segmentation_vs_classification=seg_cls_df,
         val_predictions=val_predictions_df,
         model_artifacts=model_artifacts,
         manifest=manifest,

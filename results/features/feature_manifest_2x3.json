@@ -1,0 +1,185 @@
+{
+  "schema_version": "feature-extraction-2x3-v2",
+  "primary_method": "k4_M0",
+  "methods": [
+    "otsu_M0",
+    "otsu_M1",
+    "otsu_M2",
+    "k4_M0",
+    "k4_M1",
+    "k4_M2"
+  ],
+  "splits": [
+    "train",
+    "val",
+    "test"
+  ],
+  "split_sha256": "ceeba8e282f77cdb78a9675618b3dcb6729fbc2339e2d112085a11720fc9108d",
+  "feature_sets": {
+    "A": [
+      "lab_l_mean",
+      "lab_l_std",
+      "lab_a_mean",
+      "lab_a_std",
+      "lab_b_mean",
+      "lab_b_std",
+      "glcm_contrast",
+      "glcm_homogeneity",
+      "glcm_energy",
+      "glcm_correlation"
+    ],
+    "B": [
+      "mask_foreground_fraction",
+      "mask_component_count",
+      "mask_edge_foreground_fraction",
+      "mask_is_empty",
+      "region_area_rel_mean",
+      "region_area_rel_std",
+      "region_area_rel_median",
+      "region_perimeter_rel_mean",
+      "region_perimeter_rel_std",
+      "region_perimeter_rel_median",
+      "region_circularity_mean",
+      "region_circularity_std",
+      "region_circularity_median",
+      "region_eccentricity_mean",
+      "region_eccentricity_std",
+      "region_eccentricity_median",
+      "region_solidity_mean",
+      "region_solidity_std",
+      "region_solidity_median"
+    ],
+    "C": [
+      "lab_l_mean",
+      "lab_l_std",
+      "lab_a_mean",
+      "lab_a_std",
+      "lab_b_mean",
+      "lab_b_std",
+      "glcm_contrast",
+      "glcm_homogeneity",
+      "glcm_energy",
+      "glcm_correlation",
+      "mask_foreground_fraction",
+      "mask_component_count",
+      "mask_edge_foreground_fraction",
+      "mask_is_empty",
+      "region_area_rel_mean",
+      "region_area_rel_std",
+      "region_area_rel_median",
+      "region_perimeter_rel_mean",
+      "region_perimeter_rel_std",
+      "region_perimeter_rel_median",
+      "region_circularity_mean",
+      "region_circularity_std",
+      "region_circularity_median",
+      "region_eccentricity_mean",
+      "region_eccentricity_std",
+      "region_eccentricity_median",
+      "region_solidity_mean",
+      "region_solidity_std",
+      "region_solidity_median"
+    ]
+  },
+  "appearance_definition": {
+    "color_space": "CIE Lab via OpenCV RGB float32/255 -> COLOR_RGB2LAB",
+    "lab_summary": "mean and population standard deviation over all pixels",
+    "glcm_levels": 16,
+    "glcm_distances": [
+      1,
+      2
+    ],
+    "glcm_angles_radians": [
+      0.0,
+      0.7853981633974483,
+      1.5707963267948966,
+      2.356194490192345
+    ],
+    "glcm_quantization": "fixed interval gray // 16 over full 0-255 range",
+    "glcm_symmetric": true,
+    "glcm_normalized": true,
+    "glcm_aggregation": "mean over the eight distance/angle pairs"
+  },
+  "morphology_definition": {
+    "connectivity": 8,
+    "edge_fraction": "foreground pixels in border-touching components / total foreground",
+    "area_normalization": "component area / image area",
+    "perimeter_normalization": "component perimeter / sqrt(image area)",
+    "circularity": "4*pi*area / perimeter^2; zero when perimeter is zero",
+    "eccentricity": "skimage.measure.regionprops eccentricity",
+    "solidity": "skimage.measure.regionprops solidity",
+    "summaries": [
+      "mean",
+      "population_std",
+      "median"
+    ],
+    "empty_mask_policy": "all numeric features zero, mask_is_empty=1"
+  },
+  "sample_counts": {
+    "test": 319,
+    "train": 1535,
+    "val": 372
+  },
+  "empty_masks_by_method": {
+    "k4_M0": 0,
+    "k4_M1": 0,
+    "k4_M2": 0,
+    "otsu_M0": 0,
+    "otsu_M1": 0,
+    "otsu_M2": 0
+  },
+  "zero_perimeter_components_by_method": {
+    "k4_M0": 28433,
+    "k4_M1": 0,
+    "k4_M2": 0,
+    "otsu_M0": 143526,
+    "otsu_M1": 0,
+    "otsu_M2": 0
+  },
+  "versions": {
+    "python": "3.14.0",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "opencv": "4.14.0",
+    "scipy": "1.18.1",
+    "scikit_image": "0.26.0"
+  },
+  "protocol": "2x3_factorial_segmentation_morphology_comparison",
+  "segmentation_families": [
+    "otsu",
+    "k4"
+  ],
+  "morphology_stages": [
+    "M0",
+    "M1",
+    "M2"
+  ],
+  "shared_set_a_artifact": "results/features/appearance.csv",
+  "diagnostics_artifact": "results/features/morphology_diagnostics_2x3.csv",
+  "preserved_existing_artifacts": {
+    "appearance": "preserved_byte_identical",
+    "features_otsu_M0": "preserved_byte_identical",
+    "features_otsu_M1": "written",
+    "features_otsu_M2": "preserved_byte_identical",
+    "features_k4_M0": "preserved_byte_identical",
+    "features_k4_M1": "preserved_byte_identical",
+    "features_k4_M2": "written"
+  },
+  "parity_max_abs_diff_vs_existing": {
+    "appearance": 0.0,
+    "features_otsu_M0": 2.220446049250313e-16,
+    "features_otsu_M2": 1.1102230246251565e-16,
+    "features_k4_M0": 2.220446049250313e-16,
+    "features_k4_M1": 1.7208456881689926e-15
+  },
+  "artifact_sha256": {
+    "appearance": "4d7b2c8b8a3c86ff710dfa02d332d304575ea481c6064f5efd5312d5e9991a21",
+    "features_otsu_M0": "f2d05d2daeaefdac6627478db45004df011eada9cb578353376e45c4c80bb6f9",
+    "features_otsu_M1": "272cc4800b8b0133399b137d5b54831a5bf12923a36bab5273f5a6738cfd6d33",
+    "features_otsu_M2": "23b8aef356f3b53bd56e779316d878cf1a688f43af04c4e7132fddc823ad288d",
+    "features_k4_M0": "0a4d1b7eba1db37432442f236ab20e4b6e58cc415c3ff3b38f417619eec664ad",
+    "features_k4_M1": "b5f03627e31cf4f08ee4b30a0b4cd7e8cc706852e48449ce0b899bf39381dea2",
+    "features_k4_M2": "9d510568e15af27c08b8eb5d60e1bfc64719e56c2ccfd6f041b73ec7aea83743",
+    "legacy_feature_manifest_v1": "9b19f8013c3514f641464d49188f085155f6b793e3eb5345281e0320c2941f69"
+  }
+}
