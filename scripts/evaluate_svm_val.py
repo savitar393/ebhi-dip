@@ -180,10 +180,9 @@ def main(argv: list[str] | None = None) -> int:
             use_cache=not args.no_cache,
         )
         save_strict_2x3_outputs(strict_outputs, project_root)
-        sel_rows = strict_outputs.selected_summary.loc[
-            strict_outputs.selected_summary["model_variant"].eq("cv_selected")
-        ]
-        top_row = sel_rows.sort_values(["cv_macro_f1", "val_macro_f1"], ascending=False).iloc[0]
+        from ebhi_dip.classification import select_top_cv_model_row
+
+        top_row = select_top_cv_model_row(strict_outputs.selected_summary)
         print(
             f"Stage 07 2x3-strict evaluation complete | methods={','.join(methods)} | "
             f"top_by_cv={top_row['model_id']} (cv_macro_f1={top_row['cv_macro_f1']:.4f}, "

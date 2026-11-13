@@ -138,6 +138,10 @@ class Svm2x3StrictExperimentOutputs:
     val_predictions: pd.DataFrame
     val_bootstrap_models: pd.DataFrame
     val_paired_contrasts: pd.DataFrame
+    val_bootstrap_all6_models: pd.DataFrame
+    val_paired_contrasts_all6: pd.DataFrame
+    bootstrap_sensitivity_comparison: pd.DataFrame
+    bootstrap_sensitivity_summary: dict[str, object]
     protocol_comparison: pd.DataFrame
     fold_upstream_audit: dict[str, object]
     model_artifacts: dict[str, dict[str, object]]
@@ -812,17 +816,22 @@ def _fast_six_class_bootstrap_metrics(
     return macro_f1, bal_acc, acc, n_present
 
 
-def compute_val_bootstrap_models_and_contrasts(
+def _prepare_val_bootstrap_inputs(
     val_predictions_df: pd.DataFrame,
-    contrasts: Sequence[tuple[str, str, str, str]] = STRICT_KEY_CONTRASTS,
-    n_resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES,
-    seed: int = DEFAULT_BOOTSTRAP_SEED,
     v2_predictions_df: pd.DataFrame | None = None,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Compute paired group-blocked bootstrap CIs on validation groups for models and contrasts."""
+) -> tuple[
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    dict[str, int],
+    pd.DataFrame | None,
+]:
+    """Validate and align validation predictions by sample_id for paired group bootstrap."""
     sel_df = val_predictions_df.loc[val_predictions_df["model_variant"].eq("cv_selected")].copy()
     cat_to_idx = {cat: idx for idx, cat in enumerate(EXPECTED_CATEGORIES)}
-
     pivot_pred = sel_df.pivot(index="sample_id", columns="model_id", values="predicted_category").sort_index()
     meta = (
         sel_df[["sample_id", "category", "group_id"]]
@@ -833,12 +842,41 @@ def compute_val_bootstrap_models_and_contrasts(
     yt_str = meta["category"].astype(str).to_numpy()
     yt_idx = np.asarray([cat_to_idx[c] for c in yt_str], dtype=np.int64)
     groups = meta["group_id"].astype(str).to_numpy()
-    boot_indices = _group_bootstrap_indices(groups, n_resamples=n_resamples, seed=seed)
 
+    v2_pivot: pd.DataFrame | None = None
+    if v2_predictions_df is not None and not v2_predictions_df.empty:
+        v2_sel = v2_predictions_df.loc[v2_predictions_df["model_variant"].eq("cv_selected")].copy()
+        v2_pivot = v2_sel.pivot(index="sample_id", columns="model_id", values="predicted_category").reindex(
+            pivot_pred.index
+        )
+    return sel_df, pivot_pred, meta, yt_str, yt_idx, groups, cat_to_idx, v2_pivot
+
+
+def _paired_bootstrap_tables_from_indices(
+    sel_df: pd.DataFrame,
+    pivot_pred: pd.DataFrame,
+    meta: pd.DataFrame,
+    yt_str: np.ndarray,
+    yt_idx: np.ndarray,
+    groups: np.ndarray,
+    cat_to_idx: Mapping[str, int],
+    boot_indices: Sequence[np.ndarray],
+    contrasts: Sequence[tuple[str, str, str, str]],
+    seed: int,
+    *,
+    v2_pivot: pd.DataFrame | None = None,
+    prop_gt_zero_col: str = "prob_delta_macro_f1_gt_0",
+    extra_model_meta: Mapping[str, object] | None = None,
+    extra_contrast_meta: Mapping[str, object] | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Compute paired group-blocked bootstrap model CIs and contrast CIs from precomputed index draws."""
+    n_resamples = len(boot_indices)
     boot_cache: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
     point_cache: dict[str, dict[str, float]] = {}
     model_rows: list[dict[str, object]] = []
     all6_frac = 0.0
+    extra_m = dict(extra_model_meta) if extra_model_meta else {}
+    extra_c = dict(extra_contrast_meta) if extra_contrast_meta else {}
 
     for model_id in list(sel_df["model_id"].drop_duplicates()):
         yp_str = pivot_pred[model_id].astype(str).to_numpy()
@@ -850,66 +888,87 @@ def compute_val_bootstrap_models_and_contrasts(
         point_cache[model_id] = point
 
         meta_row = sel_df.loc[sel_df["model_id"].eq(model_id)].iloc[0]
-        model_rows.append(
-            {
-                "model_id": model_id,
-                "method": str(meta_row["method"]),
-                "feature_set": str(meta_row["feature_set"]),
-                "n_val_images": int(len(meta)),
-                "n_val_groups": int(len(set(groups))),
-                "n_resamples": int(n_resamples),
-                "bootstrap_seed": int(seed),
-                "all_6_categories_present_frac": all6_frac,
-                "mean_present_categories": float(np.mean(n_pres)),
-                "val_macro_f1": float(point["macro_f1"]),
-                "val_macro_f1_ci95_low": float(np.percentile(b_f1, 2.5)),
-                "val_macro_f1_ci95_high": float(np.percentile(b_f1, 97.5)),
-                "val_balanced_accuracy": float(point["balanced_accuracy"]),
-                "val_bal_acc_ci95_low": float(np.percentile(b_ba, 2.5)),
-                "val_bal_acc_ci95_high": float(np.percentile(b_ba, 97.5)),
-                "val_accuracy": float(point["accuracy"]),
-                "val_acc_ci95_low": float(np.percentile(b_acc, 2.5)),
-                "val_acc_ci95_high": float(np.percentile(b_acc, 97.5)),
-            }
-        )
+        row_m: dict[str, object] = {
+            "model_id": model_id,
+            "method": str(meta_row["method"]),
+            "feature_set": str(meta_row["feature_set"]),
+            "n_val_images": int(len(meta)),
+            "n_val_groups": int(len(set(groups))),
+            "n_resamples": int(n_resamples),
+            "bootstrap_seed": int(seed),
+            "all_6_categories_present_frac": all6_frac,
+            "mean_present_categories": float(np.mean(n_pres)),
+            "val_macro_f1": float(point["macro_f1"]),
+            "val_macro_f1_ci95_low": float(np.percentile(b_f1, 2.5)),
+            "val_macro_f1_ci95_high": float(np.percentile(b_f1, 97.5)),
+            "val_balanced_accuracy": float(point["balanced_accuracy"]),
+            "val_bal_acc_ci95_low": float(np.percentile(b_ba, 2.5)),
+            "val_bal_acc_ci95_high": float(np.percentile(b_ba, 97.5)),
+            "val_accuracy": float(point["accuracy"]),
+            "val_acc_ci95_low": float(np.percentile(b_acc, 2.5)),
+            "val_acc_ci95_high": float(np.percentile(b_acc, 97.5)),
+        }
+        row_m.update(extra_m)
+        model_rows.append(row_m)
 
     contrast_rows: list[dict[str, object]] = []
-    for contrast_id, model_a, model_b, label in contrasts:
-        if model_a not in boot_cache or model_b not in boot_cache:
-            continue
-        f1_a, ba_a, acc_a = boot_cache[model_a]
-        f1_b, ba_b, acc_b = boot_cache[model_b]
+
+    def _append_contrast(
+        *,
+        contrast_group: str,
+        contrast_id: str,
+        label_a: str,
+        label_b: str,
+        description: str,
+        pt_a: Mapping[str, float],
+        pt_b: Mapping[str, float],
+        arr_a: tuple[np.ndarray, np.ndarray, np.ndarray],
+        arr_b: tuple[np.ndarray, np.ndarray, np.ndarray],
+    ) -> None:
+        f1_a, ba_a, acc_a = arr_a
+        f1_b, ba_b, acc_b = arr_b
         d_f1 = f1_a - f1_b
         d_ba = ba_a - ba_b
         d_acc = acc_a - acc_b
-        contrast_rows.append(
-            {
-                "contrast_group": "strict_2x3",
-                "contrast_id": contrast_id,
-                "model_a": model_a,
-                "model_b": model_b,
-                "description": label,
-                "val_macro_f1_a": float(point_cache[model_a]["macro_f1"]),
-                "val_macro_f1_b": float(point_cache[model_b]["macro_f1"]),
-                "delta_val_macro_f1": float(point_cache[model_a]["macro_f1"] - point_cache[model_b]["macro_f1"]),
-                "delta_val_macro_f1_ci95_low": float(np.percentile(d_f1, 2.5)),
-                "delta_val_macro_f1_ci95_high": float(np.percentile(d_f1, 97.5)),
-                "prob_delta_macro_f1_gt_0": float(np.mean(d_f1 > 0.0)),
-                "delta_val_balanced_accuracy": float(
-                    point_cache[model_a]["balanced_accuracy"] - point_cache[model_b]["balanced_accuracy"]
-                ),
-                "delta_val_bal_acc_ci95_low": float(np.percentile(d_ba, 2.5)),
-                "delta_val_bal_acc_ci95_high": float(np.percentile(d_ba, 97.5)),
-                "delta_val_accuracy": float(point_cache[model_a]["accuracy"] - point_cache[model_b]["accuracy"]),
-                "delta_val_acc_ci95_low": float(np.percentile(d_acc, 2.5)),
-                "delta_val_acc_ci95_high": float(np.percentile(d_acc, 97.5)),
-                "all_6_categories_present_frac": all6_frac,
-            }
+        row_c: dict[str, object] = {
+            "contrast_group": contrast_group,
+            "contrast_id": contrast_id,
+            "model_a": label_a,
+            "model_b": label_b,
+            "description": description,
+            "val_macro_f1_a": float(pt_a["macro_f1"]),
+            "val_macro_f1_b": float(pt_b["macro_f1"]),
+            "delta_val_macro_f1": float(pt_a["macro_f1"] - pt_b["macro_f1"]),
+            "delta_val_macro_f1_ci95_low": float(np.percentile(d_f1, 2.5)),
+            "delta_val_macro_f1_ci95_high": float(np.percentile(d_f1, 97.5)),
+            prop_gt_zero_col: float(np.mean(d_f1 > 0.0)),
+            "delta_val_balanced_accuracy": float(pt_a["balanced_accuracy"] - pt_b["balanced_accuracy"]),
+            "delta_val_bal_acc_ci95_low": float(np.percentile(d_ba, 2.5)),
+            "delta_val_bal_acc_ci95_high": float(np.percentile(d_ba, 97.5)),
+            "delta_val_accuracy": float(pt_a["accuracy"] - pt_b["accuracy"]),
+            "delta_val_acc_ci95_low": float(np.percentile(d_acc, 2.5)),
+            "delta_val_acc_ci95_high": float(np.percentile(d_acc, 97.5)),
+            "all_6_categories_present_frac": all6_frac,
+        }
+        row_c.update(extra_c)
+        contrast_rows.append(row_c)
+
+    for contrast_id, model_a, model_b, label in contrasts:
+        if model_a not in boot_cache or model_b not in boot_cache:
+            continue
+        _append_contrast(
+            contrast_group="strict_2x3",
+            contrast_id=contrast_id,
+            label_a=model_a,
+            label_b=model_b,
+            description=label,
+            pt_a=point_cache[model_a],
+            pt_b=point_cache[model_b],
+            arr_a=boot_cache[model_a],
+            arr_b=boot_cache[model_b],
         )
 
-    if v2_predictions_df is not None and not v2_predictions_df.empty:
-        v2_sel = v2_predictions_df.loc[v2_predictions_df["model_variant"].eq("cv_selected")].copy()
-        v2_pivot = v2_sel.pivot(index="sample_id", columns="model_id", values="predicted_category").reindex(pivot_pred.index)
+    if v2_pivot is not None:
         for model_id in list(sel_df["model_id"].drop_duplicates()):
             if model_id not in v2_pivot.columns:
                 continue
@@ -917,36 +976,319 @@ def compute_val_bootstrap_models_and_contrasts(
             yp_v2_idx = np.asarray([cat_to_idx[c] for c in yp_v2_str], dtype=np.int64)
             pt_v2 = classification_metrics(yt_str, yp_v2_str)
             v2_f1, v2_ba, v2_acc, _ = _fast_six_class_bootstrap_metrics(yt_idx, yp_v2_idx, boot_indices)
-            f1_s, ba_s, acc_s = boot_cache[model_id]
-            d_f1 = f1_s - v2_f1
-            d_ba = ba_s - v2_ba
-            d_acc = acc_s - v2_acc
-            contrast_rows.append(
-                {
-                    "contrast_group": "strict_v3_minus_fixed_v2",
-                    "contrast_id": f"v3_minus_v2_{model_id}",
-                    "model_a": f"{model_id} (v3 strict)",
-                    "model_b": f"{model_id} (v2 fixed)",
-                    "description": f"Strict fold-aware CV minus fixed-upstream CV for {model_id}",
-                    "val_macro_f1_a": float(point_cache[model_id]["macro_f1"]),
-                    "val_macro_f1_b": float(pt_v2["macro_f1"]),
-                    "delta_val_macro_f1": float(point_cache[model_id]["macro_f1"] - pt_v2["macro_f1"]),
-                    "delta_val_macro_f1_ci95_low": float(np.percentile(d_f1, 2.5)),
-                    "delta_val_macro_f1_ci95_high": float(np.percentile(d_f1, 97.5)),
-                    "prob_delta_macro_f1_gt_0": float(np.mean(d_f1 > 0.0)),
-                    "delta_val_balanced_accuracy": float(
-                        point_cache[model_id]["balanced_accuracy"] - pt_v2["balanced_accuracy"]
-                    ),
-                    "delta_val_bal_acc_ci95_low": float(np.percentile(d_ba, 2.5)),
-                    "delta_val_bal_acc_ci95_high": float(np.percentile(d_ba, 97.5)),
-                    "delta_val_accuracy": float(point_cache[model_id]["accuracy"] - pt_v2["accuracy"]),
-                    "delta_val_acc_ci95_low": float(np.percentile(d_acc, 2.5)),
-                    "delta_val_acc_ci95_high": float(np.percentile(d_acc, 97.5)),
-                    "all_6_categories_present_frac": all6_frac,
-                }
+            _append_contrast(
+                contrast_group="strict_v3_minus_fixed_v2",
+                contrast_id=f"v3_minus_v2_{model_id}",
+                label_a=f"{model_id} (v3 strict)",
+                label_b=f"{model_id} (v2 fixed)",
+                description=f"Strict fold-aware CV minus fixed-upstream CV for {model_id}",
+                pt_a=point_cache[model_id],
+                pt_b=pt_v2,
+                arr_a=boot_cache[model_id],
+                arr_b=(v2_f1, v2_ba, v2_acc),
             )
 
     return pd.DataFrame(model_rows), pd.DataFrame(contrast_rows)
+
+
+def compute_val_bootstrap_models_and_contrasts(
+    val_predictions_df: pd.DataFrame,
+    contrasts: Sequence[tuple[str, str, str, str]] = STRICT_KEY_CONTRASTS,
+    n_resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES,
+    seed: int = DEFAULT_BOOTSTRAP_SEED,
+    v2_predictions_df: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Compute paired group-blocked bootstrap CIs on validation groups for models and contrasts."""
+    sel_df, pivot_pred, meta, yt_str, yt_idx, groups, cat_to_idx, v2_pivot = _prepare_val_bootstrap_inputs(
+        val_predictions_df, v2_predictions_df=v2_predictions_df
+    )
+    boot_indices = _group_bootstrap_indices(groups, n_resamples=n_resamples, seed=seed)
+    return _paired_bootstrap_tables_from_indices(
+        sel_df=sel_df,
+        pivot_pred=pivot_pred,
+        meta=meta,
+        yt_str=yt_str,
+        yt_idx=yt_idx,
+        groups=groups,
+        cat_to_idx=cat_to_idx,
+        boot_indices=boot_indices,
+        contrasts=contrasts,
+        seed=seed,
+        v2_pivot=v2_pivot,
+        prop_gt_zero_col="prob_delta_macro_f1_gt_0",
+    )
+
+
+def _conditional_all_class_group_bootstrap_indices(
+    groups: Sequence[str] | np.ndarray,
+    cat_indices: np.ndarray,
+    *,
+    n_classes: int = len(EXPECTED_CATEGORIES),
+    n_accepted: int = DEFAULT_BOOTSTRAP_RESAMPLES,
+    seed: int = DEFAULT_BOOTSTRAP_SEED,
+    max_draw_multiplier: int = 50,
+) -> tuple[list[np.ndarray], dict[str, object]]:
+    """Draw deterministic group-blocked bootstrap replicates conditional on all classes present."""
+    g_arr = np.asarray(groups, dtype=object)
+    unique_groups = np.array(sorted(set(g_arr)), dtype=object)
+    n_groups = len(unique_groups)
+    group_to_rows = [np.flatnonzero(g_arr == g) for g in unique_groups]
+    group_cat_mask = np.zeros((n_groups, n_classes), dtype=bool)
+    for g_idx, rows in enumerate(group_to_rows):
+        present = np.unique(cat_indices[rows])
+        group_cat_mask[g_idx, present] = True
+
+    if not np.all(np.any(group_cat_mask, axis=0)):
+        raise ValueError("Source cohort does not contain all expected classes across groups.")
+
+    rng = np.random.default_rng(seed)
+    accepted_indices: list[np.ndarray] = []
+    total_draws = 0
+    max_draws = int(n_accepted) * int(max_draw_multiplier)
+
+    while len(accepted_indices) < int(n_accepted):
+        if total_draws >= max_draws:
+            raise RuntimeError(
+                f"Reached max_draws={max_draws} with only {len(accepted_indices)}/{n_accepted} "
+                "all-class group bootstrap replicates."
+            )
+        sampled_group_pos = rng.choice(n_groups, size=n_groups, replace=True)
+        total_draws += 1
+        if np.all(np.any(group_cat_mask[sampled_group_pos], axis=0)):
+            rows = np.concatenate([group_to_rows[int(idx)] for idx in sampled_group_pos])
+            accepted_indices.append(rows)
+
+    rejected_draws = total_draws - len(accepted_indices)
+    stats: dict[str, object] = {
+        "bootstrap_scheme": "conditional_all6_group_blocked_paired_bootstrap",
+        "n_groups": int(n_groups),
+        "n_classes": int(n_classes),
+        "n_accepted": int(len(accepted_indices)),
+        "total_draws": int(total_draws),
+        "rejected_draws": int(rejected_draws),
+        "acceptance_rate": float(len(accepted_indices) / total_draws),
+        "seed": int(seed),
+    }
+    return accepted_indices, stats
+
+
+def compute_conditional_all6_val_bootstrap(
+    val_predictions_df: pd.DataFrame,
+    unconditional_models_df: pd.DataFrame | None = None,
+    unconditional_contrasts_df: pd.DataFrame | None = None,
+    *,
+    contrasts: Sequence[tuple[str, str, str, str]] = STRICT_KEY_CONTRASTS,
+    n_accepted: int = DEFAULT_BOOTSTRAP_RESAMPLES,
+    seed: int = DEFAULT_BOOTSTRAP_SEED,
+    v2_predictions_df: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, object]]:
+    """Compute all-6-class conditional group-blocked bootstrap CIs and compare vs unconditional draws."""
+    sel_df, pivot_pred, meta, yt_str, yt_idx, groups, cat_to_idx, v2_pivot = _prepare_val_bootstrap_inputs(
+        val_predictions_df, v2_predictions_df=v2_predictions_df
+    )
+    if unconditional_models_df is None or unconditional_contrasts_df is None:
+        uncond_boot = _group_bootstrap_indices(groups, n_resamples=n_accepted, seed=seed)
+        uncond_m_df, uncond_c_df = _paired_bootstrap_tables_from_indices(
+            sel_df=sel_df,
+            pivot_pred=pivot_pred,
+            meta=meta,
+            yt_str=yt_str,
+            yt_idx=yt_idx,
+            groups=groups,
+            cat_to_idx=cat_to_idx,
+            boot_indices=uncond_boot,
+            contrasts=contrasts,
+            seed=seed,
+            v2_pivot=v2_pivot,
+            prop_gt_zero_col="prob_delta_macro_f1_gt_0",
+        )
+    else:
+        uncond_m_df = unconditional_models_df.copy()
+        uncond_c_df = unconditional_contrasts_df.copy()
+
+    cond_indices, draw_stats = _conditional_all_class_group_bootstrap_indices(
+        groups,
+        yt_idx,
+        n_classes=len(EXPECTED_CATEGORIES),
+        n_accepted=n_accepted,
+        seed=seed,
+    )
+    cond_models_df, cond_contrasts_df = _paired_bootstrap_tables_from_indices(
+        sel_df=sel_df,
+        pivot_pred=pivot_pred,
+        meta=meta,
+        yt_str=yt_str,
+        yt_idx=yt_idx,
+        groups=groups,
+        cat_to_idx=cat_to_idx,
+        boot_indices=cond_indices,
+        contrasts=contrasts,
+        seed=seed,
+        v2_pivot=v2_pivot,
+        prop_gt_zero_col="prop_bootstrap_delta_gt_0",
+        extra_model_meta={
+            "bootstrap_scheme": draw_stats["bootstrap_scheme"],
+            "total_draws": draw_stats["total_draws"],
+            "rejected_draws": draw_stats["rejected_draws"],
+            "acceptance_rate": draw_stats["acceptance_rate"],
+        },
+        extra_contrast_meta={
+            "bootstrap_scheme": draw_stats["bootstrap_scheme"],
+            "total_draws": draw_stats["total_draws"],
+            "rejected_draws": draw_stats["rejected_draws"],
+            "acceptance_rate": draw_stats["acceptance_rate"],
+        },
+    )
+
+    uncond_prop_col = (
+        "prob_delta_macro_f1_gt_0" if "prob_delta_macro_f1_gt_0" in uncond_c_df.columns else "prop_bootstrap_delta_gt_0"
+    )
+    comp_rows: list[dict[str, object]] = []
+    uncond_m_map = uncond_m_df.set_index("model_id")
+    for _, cm in cond_models_df.iterrows():
+        mid = str(cm["model_id"])
+        um = uncond_m_map.loc[mid]
+        u_w = float(um["val_macro_f1_ci95_high"] - um["val_macro_f1_ci95_low"])
+        c_w = float(cm["val_macro_f1_ci95_high"] - cm["val_macro_f1_ci95_low"])
+        comp_rows.append(
+            {
+                "record_type": "model",
+                "item_id": mid,
+                "description": f"{cm['method']} / Set {cm['feature_set']}",
+                "point_macro_f1": float(cm["val_macro_f1"]),
+                "uncond_macro_f1_ci95_low": float(um["val_macro_f1_ci95_low"]),
+                "uncond_macro_f1_ci95_high": float(um["val_macro_f1_ci95_high"]),
+                "uncond_macro_f1_ci95_width": u_w,
+                "cond_macro_f1_ci95_low": float(cm["val_macro_f1_ci95_low"]),
+                "cond_macro_f1_ci95_high": float(cm["val_macro_f1_ci95_high"]),
+                "cond_macro_f1_ci95_width": c_w,
+                "delta_macro_f1_ci95_low": float(cm["val_macro_f1_ci95_low"] - um["val_macro_f1_ci95_low"]),
+                "delta_macro_f1_ci95_high": float(cm["val_macro_f1_ci95_high"] - um["val_macro_f1_ci95_high"]),
+                "delta_macro_f1_ci95_width": c_w - u_w,
+                "width_ratio_macro_f1": (c_w / u_w) if u_w > 0.0 else 1.0,
+                "point_bal_acc": float(cm["val_balanced_accuracy"]),
+                "uncond_bal_acc_ci95_low": float(um["val_bal_acc_ci95_low"]),
+                "uncond_bal_acc_ci95_high": float(um["val_bal_acc_ci95_high"]),
+                "cond_bal_acc_ci95_low": float(cm["val_bal_acc_ci95_low"]),
+                "cond_bal_acc_ci95_high": float(cm["val_bal_acc_ci95_high"]),
+                "point_accuracy": float(cm["val_accuracy"]),
+                "uncond_acc_ci95_low": float(um["val_acc_ci95_low"]),
+                "uncond_acc_ci95_high": float(um["val_acc_ci95_high"]),
+                "cond_acc_ci95_low": float(cm["val_acc_ci95_low"]),
+                "cond_acc_ci95_high": float(cm["val_acc_ci95_high"]),
+                "uncond_prop_gt_0": np.nan,
+                "cond_prop_gt_0": np.nan,
+                "uncond_excludes_zero": np.nan,
+                "cond_excludes_zero": np.nan,
+                "ci_zero_conclusion_unchanged": np.nan,
+            }
+        )
+
+    uncond_c_map = uncond_c_df.set_index("contrast_id")
+    changed_f1: list[str] = []
+    changed_ba: list[str] = []
+    changed_acc: list[str] = []
+    for _, cc in cond_contrasts_df.loc[cond_contrasts_df["contrast_group"].eq("strict_2x3")].iterrows():
+        cid = str(cc["contrast_id"])
+        uc = uncond_c_map.loc[cid]
+        u_w = float(uc["delta_val_macro_f1_ci95_high"] - uc["delta_val_macro_f1_ci95_low"])
+        c_w = float(cc["delta_val_macro_f1_ci95_high"] - cc["delta_val_macro_f1_ci95_low"])
+        u_excl = bool(
+            float(uc["delta_val_macro_f1_ci95_low"]) > 0.0
+            or float(uc["delta_val_macro_f1_ci95_high"]) < 0.0
+        )
+        c_excl = bool(
+            float(cc["delta_val_macro_f1_ci95_low"]) > 0.0
+            or float(cc["delta_val_macro_f1_ci95_high"]) < 0.0
+        )
+        if u_excl != c_excl:
+            changed_f1.append(cid)
+        u_ba_excl = bool(
+            float(uc["delta_val_bal_acc_ci95_low"]) > 0.0 or float(uc["delta_val_bal_acc_ci95_high"]) < 0.0
+        )
+        c_ba_excl = bool(
+            float(cc["delta_val_bal_acc_ci95_low"]) > 0.0 or float(cc["delta_val_bal_acc_ci95_high"]) < 0.0
+        )
+        if u_ba_excl != c_ba_excl:
+            changed_ba.append(cid)
+        u_ac_excl = bool(
+            float(uc["delta_val_acc_ci95_low"]) > 0.0 or float(uc["delta_val_acc_ci95_high"]) < 0.0
+        )
+        c_ac_excl = bool(
+            float(cc["delta_val_acc_ci95_low"]) > 0.0 or float(cc["delta_val_acc_ci95_high"]) < 0.0
+        )
+        if u_ac_excl != c_ac_excl:
+            changed_acc.append(cid)
+
+        comp_rows.append(
+            {
+                "record_type": "contrast",
+                "item_id": cid,
+                "description": str(cc["description"]),
+                "point_macro_f1": float(cc["delta_val_macro_f1"]),
+                "uncond_macro_f1_ci95_low": float(uc["delta_val_macro_f1_ci95_low"]),
+                "uncond_macro_f1_ci95_high": float(uc["delta_val_macro_f1_ci95_high"]),
+                "uncond_macro_f1_ci95_width": u_w,
+                "cond_macro_f1_ci95_low": float(cc["delta_val_macro_f1_ci95_low"]),
+                "cond_macro_f1_ci95_high": float(cc["delta_val_macro_f1_ci95_high"]),
+                "cond_macro_f1_ci95_width": c_w,
+                "delta_macro_f1_ci95_low": float(
+                    cc["delta_val_macro_f1_ci95_low"] - uc["delta_val_macro_f1_ci95_low"]
+                ),
+                "delta_macro_f1_ci95_high": float(
+                    cc["delta_val_macro_f1_ci95_high"] - uc["delta_val_macro_f1_ci95_high"]
+                ),
+                "delta_macro_f1_ci95_width": c_w - u_w,
+                "width_ratio_macro_f1": (c_w / u_w) if u_w > 0.0 else 1.0,
+                "point_bal_acc": float(cc["delta_val_balanced_accuracy"]),
+                "uncond_bal_acc_ci95_low": float(uc["delta_val_bal_acc_ci95_low"]),
+                "uncond_bal_acc_ci95_high": float(uc["delta_val_bal_acc_ci95_high"]),
+                "cond_bal_acc_ci95_low": float(cc["delta_val_bal_acc_ci95_low"]),
+                "cond_bal_acc_ci95_high": float(cc["delta_val_bal_acc_ci95_high"]),
+                "point_accuracy": float(cc["delta_val_accuracy"]),
+                "uncond_acc_ci95_low": float(uc["delta_val_acc_ci95_low"]),
+                "uncond_acc_ci95_high": float(uc["delta_val_acc_ci95_high"]),
+                "cond_acc_ci95_low": float(cc["delta_val_acc_ci95_low"]),
+                "cond_acc_ci95_high": float(cc["delta_val_acc_ci95_high"]),
+                "uncond_prop_gt_0": float(uc[uncond_prop_col]),
+                "cond_prop_gt_0": float(cc["prop_bootstrap_delta_gt_0"]),
+                "uncond_excludes_zero": u_excl,
+                "cond_excludes_zero": c_excl,
+                "ci_zero_conclusion_unchanged": bool(u_excl == c_excl),
+            }
+        )
+
+    comparison_df = pd.DataFrame(comp_rows)
+    model_ratios = comparison_df.loc[comparison_df["record_type"].eq("model"), "width_ratio_macro_f1"].astype(float)
+    contrast_ratios = comparison_df.loc[comparison_df["record_type"].eq("contrast"), "width_ratio_macro_f1"].astype(
+        float
+    )
+    summary_meta: dict[str, object] = {
+        "schema": "ebhi_dip.strict_cv_bootstrap_sensitivity.v1",
+        **draw_stats,
+        "unconditional_all_6_categories_present_frac": float(uncond_m_df["all_6_categories_present_frac"].iloc[0]),
+        "unconditional_bootstrap_seed": int(uncond_m_df["bootstrap_seed"].iloc[0]),
+        "unconditional_n_resamples": int(uncond_m_df["n_resamples"].iloc[0]),
+        "model_macro_f1_width_ratio_min": float(model_ratios.min()),
+        "model_macro_f1_width_ratio_median": float(model_ratios.median()),
+        "model_macro_f1_width_ratio_max": float(model_ratios.max()),
+        "contrast_macro_f1_width_ratio_min": float(contrast_ratios.min()),
+        "contrast_macro_f1_width_ratio_median": float(contrast_ratios.median()),
+        "contrast_macro_f1_width_ratio_max": float(contrast_ratios.max()),
+        "contrast_zero_exclusion_changed_macro_f1": changed_f1,
+        "contrast_zero_exclusion_changed_balanced_accuracy": changed_ba,
+        "contrast_zero_exclusion_changed_accuracy": changed_acc,
+        "substantive_macro_f1_conclusions_unchanged": len(changed_f1) == 0,
+        "scientific_interpretation_note": (
+            "Conditional group-blocked resampling conditions on all 6 categories appearing among the 53 sampled "
+            "validation groups (rejecting draws lacking Serrated adenoma [2 groups] or Normal [3 groups]). "
+            "Conditional intervals ensure a fixed 6-class Macro-F1 / Balanced Accuracy definition across all 2,000 "
+            "replicates, whereas unconditional intervals reflect natural finite-sample group dropout (~17.7% of draws). "
+            "Empirical bootstrap proportions (prop_bootstrap_delta_gt_0) summarize resampling variability and are "
+            "neither Bayesian posterior probabilities nor confirmatory hypothesis tests."
+        ),
+    }
+    return cond_models_df, cond_contrasts_df, comparison_df, summary_meta
 
 
 def _assemble_fold_matrices(
@@ -1262,6 +1604,20 @@ def run_svm_2x3_strict_experiments(
         seed=bootstrap_seed,
         v2_predictions_df=v2_pred_df,
     )
+    (
+        val_boot_all6_models_df,
+        val_contrasts_all6_df,
+        boot_sensitivity_comp_df,
+        boot_sensitivity_summary,
+    ) = compute_conditional_all6_val_bootstrap(
+        val_predictions_df,
+        unconditional_models_df=val_boot_models_df,
+        unconditional_contrasts_df=val_contrasts_df,
+        contrasts=STRICT_KEY_CONTRASTS,
+        n_accepted=bootstrap_resamples,
+        seed=bootstrap_seed,
+        v2_predictions_df=v2_pred_df,
+    )
 
     # Merge 95% val bootstrap CIs directly onto selected_summary for cv_selected rows
     boot_lookup = val_boot_models_df.set_index("model_id")
@@ -1465,6 +1821,7 @@ def run_svm_2x3_strict_experiments(
                 "and Normal occupies 3 val groups (10 images)."
             ),
         },
+        "validation_bootstrap_conditional_all6": boot_sensitivity_summary,
         "correlations_descriptive_only_n6": {
             "warning": (
                 "Computed across n=6 dependent configurations on shared validation images; "
@@ -1494,12 +1851,45 @@ def run_svm_2x3_strict_experiments(
         val_predictions=val_predictions_df,
         val_bootstrap_models=val_boot_models_df,
         val_paired_contrasts=val_contrasts_df,
+        val_bootstrap_all6_models=val_boot_all6_models_df,
+        val_paired_contrasts_all6=val_contrasts_all6_df,
+        bootstrap_sensitivity_comparison=boot_sensitivity_comp_df,
+        bootstrap_sensitivity_summary=boot_sensitivity_summary,
         protocol_comparison=protocol_comp_df,
         fold_upstream_audit=fold_upstream_payload,
         model_artifacts=model_artifacts,
         manifest=manifest,
         split_sha256=split_sha,
     )
+
+
+def save_bootstrap_sensitivity_outputs(
+    cond_models_df: pd.DataFrame,
+    cond_contrasts_df: pd.DataFrame,
+    comparison_df: pd.DataFrame,
+    summary_meta: Mapping[str, object],
+    project_root: str | Path,
+) -> dict[str, Path]:
+    """Write standalone conditional all-6-class bootstrap sensitivity files without touching v3 history."""
+    root = Path(project_root).expanduser().resolve()
+    out_dir = root / CLASSIFICATION_2X3_STRICT_DIR_REL
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written: dict[str, Path] = {}
+    csv_map = {
+        "val_bootstrap_all6_models": (out_dir / "svm_2x3_strict_val_bootstrap_all6_models.csv", cond_models_df),
+        "val_paired_contrasts_all6": (out_dir / "svm_2x3_strict_val_paired_contrasts_all6.csv", cond_contrasts_df),
+        "bootstrap_sensitivity_comparison": (out_dir / "svm_2x3_strict_bootstrap_comparison.csv", comparison_df),
+    }
+    for key, (path, df) in csv_map.items():
+        df.to_csv(path, index=False, lineterminator="\n")
+        written[key] = path
+
+    summary_path = out_dir / "bootstrap_sensitivity_summary.json"
+    with summary_path.open("w", encoding="utf-8", newline="\n") as file:
+        json.dump(dict(summary_meta), file, indent=2, allow_nan=False)
+        file.write("\n")
+    written["bootstrap_sensitivity_summary"] = summary_path
+    return written
 
 
 def save_strict_2x3_outputs(
@@ -1530,6 +1920,16 @@ def save_strict_2x3_outputs(
     for key, (path, df) in csv_map.items():
         df.to_csv(path, index=False, lineterminator="\n")
         written[key] = path
+
+    written.update(
+        save_bootstrap_sensitivity_outputs(
+            outputs.val_bootstrap_all6_models,
+            outputs.val_paired_contrasts_all6,
+            outputs.bootstrap_sensitivity_comparison,
+            outputs.bootstrap_sensitivity_summary,
+            root,
+        )
+    )
 
     audit_path = out_dir / "fold_upstream_audit.json"
     with audit_path.open("w", encoding="utf-8", newline="\n") as file:

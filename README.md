@@ -50,11 +50,12 @@ Artefak di `results/classification_2x3_strict/` dan `models/cv_2x3_strict/` (den
 | `k4_M0` / `k4_M1` / `k4_M2` | `B` (19 fitur) | `rbf, balanced` (`C=10/10/3`) | 0.2744 / 0.2797 / 0.2633 | 0.2490 / 0.2311 / 0.2072 | 0.2790 / 0.2829 / 0.2173 | 33.33% / 32.80% / 29.57% |
 | Sensitivitas `k4_M0` (`A_seg` / `C_seg`) | `10` / `29` FG | `linear, bal, C=1` / `rbf, bal, C=10, 0.01` | 0.3709 / 0.3897 | 0.2575 / 0.2572 | 0.3177 / 0.2593 | 30.91% / 35.75% |
 
-- **Tiga kontras berpasangan dengan *95% bootstrap CI* di atas nol (`B = 2.000`, `82.3%` undian memuat keenam kelas):**
-  - `otsu_M0_C - shared_A = +0.0919 [+0.0190, +0.1788], P(>0) = 0.989` (morfologi mentah Otsu menambah informasi di atas warna/GLCM saja).
-  - `otsu_M0_B - k4_M0_B = +0.0790 [+0.0316, +0.1417], P(>0) = 0.9995` (morfologi murni Otsu jauh melampaui `k4`).
-  - `otsu_M0_C - otsu_M0_B = +0.0778 [+0.0060, +0.1483], P(>0) = 0.984` (menggabungkan *appearance* A dan morfologi Otsu B nyata melampaui Set B saja).
-- **Antar-konfigurasi Set C:** `otsu_M0_C` unggul atas `k4_M0_C` sebesar `+0.0672 [-0.0060, +0.1532], P(>0) = 0.964` (`Val Acc +12.10 pp [+4.15, +21.09 pp]`) dan atas `otsu_M2_C` sebesar `+0.0596 [-0.0091, +0.1330], P(>0) = 0.9525` (`Val Acc +12.10 pp [+4.32, +20.00 pp]`), sementara pembatasan `k4_M0_C_seg` tertinggal dari unmasked `k4_M0_C` (`-0.0815 [-0.1296, -0.0300]`).
+- **Tiga kontras berpasangan dengan *95% bootstrap CI* di atas nol (`B = 2.000`, `82.3%` undian memuat keenam kelas; `prop>0` = proporsi replikasi bootstrap dengan selisih > 0, bukan probabilitas posterior Bayesian):**
+  - `otsu_M0_C - shared_A = +0.0919 [+0.0190, +0.1788], prop>0 = 0.9890` (morfologi mentah Otsu menambah informasi di atas warna/GLCM saja).
+  - `otsu_M0_B - k4_M0_B = +0.0790 [+0.0316, +0.1417], prop>0 = 0.9995` (morfologi murni Otsu jauh melampaui `k4`).
+  - `otsu_M0_C - otsu_M0_B = +0.0778 [+0.0060, +0.1483], prop>0 = 0.9840` (menggabungkan *appearance* A dan morfologi Otsu B nyata melampaui Set B saja).
+- **Analisis sensitivitas *conditional all-6-class bootstrap* (`2.000` undian diterima dari `2.432` penarikan; *acceptance rate* `82.24%`, `432` penarikan ditolak karena kehilangan kelas minoritas, `seed = 42`):** mewajibkan keenam kelas hadir mempersempit lebar *95% CI* Macro-F1 lintas seluruh 15 model (rasio lebar `0.714–0.940`; mis. `otsu_M0_C` `[0.3272, 0.4726]` vs `[0.3316, 0.5026]`) karena memangkas bias ekor atas saat `Serrated adenoma`/`Normal` absen, namun **tidak mengubah kesimpulan substantif**: ketiga kontras utama tetap mengecualikan nol (`[+0.0238, +0.1748]` `prop>0 = 0.9965`; `[+0.0340, +0.1385]` `prop>0 = 1.0000`; `[+0.0038, +0.1405]` `prop>0 = 0.9805`), seluruh 15 kontras Balanced Accuracy/Accuracy tidak berubah tanda, dan hanya satu kontras batas `otsu_M0_C - otsu_M1_C` bergeser tipis melintasi nol (`[-0.0015, +0.1231]` $\rightarrow$ `[+0.0003, +0.1214]`).
+- **Antar-konfigurasi Set C:** `otsu_M0_C` unggul atas `k4_M0_C` sebesar `+0.0672 [-0.0060, +0.1532], prop>0 = 0.9640` (`Val Acc +12.10 pp [+4.15, +21.09 pp]`) dan atas `otsu_M2_C` sebesar `+0.0596 [-0.0091, +0.1330], prop>0 = 0.9525` (`Val Acc +12.10 pp [+4.32, +20.00 pp]`), sementara pembatasan `k4_M0_C_seg` tertinggal dari unmasked `k4_M0_C` (`-0.0815 [-0.1296, -0.0300]`).
 - **Dampak penghapusan kebocoran *upstream* (`v2` $\rightarrow$ `v3`):** `otsu` tetap invarian pada semua 5 fold (polaritas `"dark"` margin Dice $\ge +0.2841$; paritas fitur `<= 2.22e-16`), sehingga seluruh 6 model Otsu dan `Shared Set A` identik antara `v2` dan `v3`. Sebaliknya, *refitting* `k4` per fold mengubah *hyperparameter* pada **6/7 model `k4`** dan skor CV pada **7/7 model `k4`** (`k4_M0_B` CV `0.2937 -> 0.2744`; `k4_M0_C_seg` Val `0.2942 -> 0.2572`).
 - **Hubungan deskriptif Dice segmentasi vs klasifikasi ($n=6$):** berkorelasi **negatif** (`Set B`: Pearson deskriptif `r = -0.9799` CV / `-0.9478` Val; `Set C`: `r = -0.9876` CV / `-0.7706` Val), karena `k4` menutupi `85%–87%` area gambar sehingga melebur kompleks epitel–stroma, sedangkan Otsu (`53%–54%`) mempertahankan struktur komponen epitel/nukleus yang informatif.
 
@@ -64,12 +65,12 @@ Tabel historis berikut mencatat artefak `v1` (`results/classification/`, `models
 
 | Track Model (`v1`) | Artifact JSON | Mask & Himpunan Fitur | Kernel (`C`, `gamma`, `weight`) | Val Macro F1 | Test Macro F1 (95% CI) | Test Balanced Acc | Test Accuracy |
 |---|---|---|---|---:|---:|---:|---:|
-| Ablasi Set A (Appearance) | `models/svm_k4_M0_A.json` | Tanpa mask (`Set A`: 10 fitur Lab+GLCM) | RBF (`3.0`, `0.03`, `balanced`) | 0.4272 | 0.3313 `[0.2587, 0.3883]` | 0.3401 | 41.38% |
-| Ablasi Set B (Morphology) | `models/svm_k4_M0_B.json` | `k4_M0` (`Set B`: 19 fitur morfologi) | RBF (`0.3`, `scale`, `none`) | 0.2508 | 0.2094 `[0.1538, 0.2535]` | 0.2371 | 36.99% |
-| **Primary Locked Track (`v1`)** | **`models/svm_k4_M0_selected.json`** | **`k4_M0` (`Set C`: 29 fitur gabungan)** | **RBF (`10.0`, `scale`, `none`)** | **0.4357** | **0.3507 `[0.2545, 0.4171]`** | **0.3457** | **48.28%** |
-| Segmented-Appearance (`Set C_seg`) | `models/svm_k4_M0_C_seg.json` | `k4_M0` (`Set C_seg`: 29 fitur fokus FG) | RBF (`3.0`, `scale`, `none`) | 0.4063 | 0.3563 `[0.2752, 0.4167]` | 0.3568 | 46.71% |
-| Comparator Otsu Raw (`Set C`) | `models/svm_otsu_M0_C.json` | `otsu_M0` (`Set C`: 29 fitur gabungan) | RBF (`10.0`, `scale`, `none`) | 0.4252 | 0.4090 `[0.3435, 0.4596]` | 0.4024 | 58.31% |
-| Best Classifier Comparator (`v1`) | `models/svm_otsu_M2_C.json` | `otsu_M2` (`Set C`: 29 fitur gabungan) | RBF (`3.0`, `scale`, `none`) | 0.4601 | 0.4117 `[0.3435, 0.4616]` | 0.4044 | 59.25% |
+| Ablasi Set A (Appearance) | `models/svm_k4_M0_A.json` | Tanpa mask (`Set A`: 10 fitur Lab+GLCM) | RBF (`1.0`, `scale`, `balanced`) | 0.3420 | 0.3313 `[0.2253, 0.4111]` | 0.3654 | 36.99% |
+| Ablasi Set B (Morphology) | `models/svm_k4_M0_B.json` | `k4_M0` (`Set B`: 19 fitur morfologi) | RBF (`3.0`, `0.1`, `none`) | 0.2608 | 0.2094 `[0.1659, 0.2519]` | 0.2216 | 39.81% |
+| **Primary Locked Track (`v1`)** | **`models/svm_k4_M0_selected.json`** | **`k4_M0` (`Set C`: 29 fitur gabungan)** | **RBF (`10.0`, `0.01`, `none`)** | **0.3625** | **0.3507 `[0.2545, 0.4171]`** | **0.3313** | **48.28%** |
+| Segmented-Appearance (`Set C_seg`) | `models/svm_k4_M0_C_seg.json` | `k4_M0` (`Set C_seg`: 29 fitur fokus FG) | RBF (`10.0`, `scale`, `none`) | 0.3182 | 0.3297 `[0.2607, 0.3847]` | 0.3264 | 47.96% |
+| Comparator Otsu Raw (`Set C`) | `models/svm_otsu_M0_C.json` | `otsu_M0` (`Set C`: 29 fitur gabungan) | RBF (`10.0`, `0.01`, `none`) | 0.3976 | 0.4075 `[0.3111, 0.4860]` | 0.3917 | 54.86% |
+| Best Classifier Comparator (`v1`) | `models/svm_otsu_M2_C.json` | `otsu_M2` (`Set C`: 29 fitur gabungan) | RBF (`10.0`, `0.01`, `none`) | 0.4587 | 0.4117 `[0.3435, 0.4616]` | 0.4044 | 59.25% |
 
 ---
 
@@ -101,7 +102,7 @@ Jika citra mentah tidak tersedia, seluruh analisis berbasis CSV/JSON tetap berja
 
 ---
 
-## Urutan dan Peta Notebook (`01`–`08`)
+## Urutan dan Peta Notebook (`01`–`07` Rutin, plus `08` Rekam Historis `v1`)
 
 | Notebook | Fokus pertanyaan & isi utama |
 |---|---|
@@ -170,9 +171,10 @@ $env:PATH = "C:\msys64\ucrt64\bin;" + $env:PATH
 - `configs/` — Konfigurasi eksperimen (`otsu_raw.json`, `segmentation_selection.json`, `provenance_migration.json`).
 - `data/metadata/` — Manifest, audit, grup nama file, serta `split_manifest.csv` + `.sha256` yang dibekukan.
 - `models/` — Artefak JSON pusat *cluster* Lab K-means (`kmeans_lab_k*_mapped.json`), model SVM historis `v1` (`svm_*.json`), model `v2` (`cv_2x3/`), dan model kanonik `v3` (`cv_2x3_strict/`).
-- `results/` — Skor validasi segmentasi, tabel fitur 2×3 (`results/features/`), hasil SVM historis `v1` (`results/classification/`), `v2` (`results/classification_2x3/`), `v3` final (`results/classification_2x3_strict/`), dan hasil *test* historis `v1` (`results/test/`).
+- `results/` — Skor validasi segmentasi, tabel fitur 2×3 (`results/features/`), hasil SVM historis `v1` (`results/classification/`), `v2` (`results/classification_2x3/`), `v3` final (`results/classification_2x3_strict/`, termasuk analisis sensitivitas *conditional all-6 bootstrap*), dan hasil *test* historis `v1` (`results/test/`).
+- `reports/` — Laporan analisis ilmiah final (`reports/laporan_analisis_ilmiah_ebhi_dip.md`) dan seluruh figur ilmiah terkurasi (`reports/figures/`).
 - `docs/` — Dokumentasi garis keturunan provenance (`docs/provenance_migration.md`).
-- `tests/` — Pengujian kontrak numerik, integritas kohort, provenance, ekstraksi fitur 2×3, klasifikasi SVM `v1`/`v2`/`v3` (*fold-aware* + *val-blind*), evaluasi historis `test`, serta paritas C++ vs Python.
+- `tests/` — Pengujian kontrak numerik, integritas kohort, provenance, ekstraksi fitur 2×3, klasifikasi SVM `v1`/`v2`/`v3` (*fold-aware* + *val-blind* + *conditional bootstrap*), evaluasi historis `test`, serta paritas C++ vs Python.
 
 ---
 
@@ -190,7 +192,9 @@ Jalankan evaluasi klasifikasi 2×3 protokol ketat (`v3`, memakai *fold cache* di
 .\.venv\Scripts\python.exe scripts/evaluate_svm_val.py --protocol 2x3-strict --workers 8
 ```
 
-Jalankan ulang seluruh *notebook* (`01`–`08`) dari *fresh kernel*:
+### Verifikasi *Notebook* Rutin (`01`–`07`, termasuk `05b`)
+
+Eksekusi ulang *Run All* rutin **hanya mencakup notebook `01`–`07`** (`08` dikecualikan agar subset *held-out* `test` tetap terisolasi):
 
 ```powershell
 .\.venv\Scripts\python.exe -m nbconvert --to notebook --execute --inplace notebooks/01_dataset_audit.ipynb
@@ -201,6 +205,13 @@ Jalankan ulang seluruh *notebook* (`01`–`08`) dari *fresh kernel*:
 .\.venv\Scripts\python.exe -m nbconvert --to notebook --execute --inplace notebooks/05b_segmentation_case_analysis.ipynb
 .\.venv\Scripts\python.exe -m nbconvert --to notebook --execute --inplace notebooks/06_feature_extraction.ipynb
 .\.venv\Scripts\python.exe -m nbconvert --to notebook --execute --inplace notebooks/07_svm_classification.ipynb
+```
+
+### Reproduksi Terpisah: Evaluasi Akhir Historis `v1` (`notebooks/08_final_test_evaluation.ipynb`)
+
+`notebooks/08_final_test_evaluation.ipynb` beserta artefak pada `results/test/` merupakan **rekam evaluasi satu kali historis milik protokol `v1`** (`results/classification/`, `models/svm_*.json`) yang **tidak** berlaku untuk model `v2`/`v3` dan **dikeluarkan dari alur `Run All` rutin**. Hanya jalankan secara terpisah apabila reproduksi historis `v1` memang diperlukan secara ilmiah:
+
+```powershell
 .\.venv\Scripts\python.exe -m nbconvert --to notebook --execute --inplace notebooks/08_final_test_evaluation.ipynb
 ```
 
@@ -212,4 +223,4 @@ Jalankan ulang seluruh *notebook* (`01`–`08`) dari *fresh kernel*:
 2. **Makna biologis segmentasi warna/intensitas:** baik Otsu maupun Lab K-means memisahkan kecerahan/warna pewarnaan H&E secara global; *mask* yang dihasilkan adalah representasi kompartemen warna jaringan dan **bukan** segmentasi nukleus, kelenjar, atau area kanker yang tervalidasi secara klinis.
 3. **Integritas frozen split:** `data/metadata/split_manifest.csv` diverifikasi menggunakan *raw bytes* secara ketat; normalisasi *line-ending* dilarang pada file tersebut.
 4. **Lineage kode sumber (`utf8-lf-v1`):** perbedaan *hash* `CRLF` vs `LF` pada *helper* historis ditangani secara eksplisit melalui `configs/provenance_migration.json` dan `docs/provenance_migration.md`.
-5. **Disiplin subset `test` & batasan validasi 2×3:** evaluasi historis `test` (`319` citra, Tahap 08) hanya dilakukan pada artefak `v1`. Pada protokol **`v2` dan `v3` (`2x3-strict`)**, `test` sama sekali tidak disentuh (`0` citra). Korelasi Dice vs Macro-F1 lintas $n=6$ konfigurasi bersifat deskriptif saja, dan evaluasi `val` dibatasi oleh jumlah grup kelas minoritas yang sangat kecil (`2` grup `Serrated adenoma`, `3` grup `Normal`; `82.3%` penarikan bootstrap memuat keenam kelas).
+5. **Disiplin subset `test` & batasan validasi 2×3:** evaluasi historis `test` (`319` citra, Tahap 08) hanya dilakukan pada artefak `v1`. Pada protokol **`v2` dan `v3` (`2x3-strict`)**, `test` sama sekali tidak disentuh (`0` citra). Korelasi Dice vs Macro-F1 lintas $n=6$ konfigurasi bersifat deskriptif saja, dan evaluasi `val` dibatasi oleh jumlah grup kelas minoritas yang sangat kecil (`2` grup `Serrated adenoma`, `3` grup `Normal`; `82.3%` penarikan unconditional bootstrap memuat keenam kelas, dan sensitivitas *conditional all-6-class* mencatat *acceptance rate* `82.24%` dengan `432` penarikan ditolak dari `2.432` total).

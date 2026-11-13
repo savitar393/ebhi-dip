@@ -1,0 +1,27 @@
+{
+  "schema": "ebhi_dip.strict_cv_bootstrap_sensitivity.v1",
+  "bootstrap_scheme": "conditional_all6_group_blocked_paired_bootstrap",
+  "n_groups": 53,
+  "n_classes": 6,
+  "n_accepted": 2000,
+  "total_draws": 2432,
+  "rejected_draws": 432,
+  "acceptance_rate": 0.8223684210526315,
+  "seed": 42,
+  "unconditional_all_6_categories_present_frac": 0.823,
+  "unconditional_bootstrap_seed": 42,
+  "unconditional_n_resamples": 2000,
+  "model_macro_f1_width_ratio_min": 0.7143603763901901,
+  "model_macro_f1_width_ratio_median": 0.846520773821683,
+  "model_macro_f1_width_ratio_max": 0.9397973226022989,
+  "contrast_macro_f1_width_ratio_min": 0.9058738028964337,
+  "contrast_macro_f1_width_ratio_median": 0.9488035604833952,
+  "contrast_macro_f1_width_ratio_max": 1.0318680151999484,
+  "contrast_zero_exclusion_changed_macro_f1": [
+    "otsu_M0_C_vs_otsu_M1_C"
+  ],
+  "contrast_zero_exclusion_changed_balanced_accuracy": [],
+  "contrast_zero_exclusion_changed_accuracy": [],
+  "substantive_macro_f1_conclusions_unchanged": false,
+  "scientific_interpretation_note": "Conditional group-blocked resampling conditions on all 6 categories appearing among the 53 sampled validation groups (rejecting draws lacking Serrated adenoma [2 groups] or Normal [3 groups]). Conditional intervals ensure a fixed 6-class Macro-F1 / Balanced Accuracy definition across all 2,000 replicates, whereas unconditional intervals reflect natural finite-sample group dropout (~17.7% of draws). Empirical bootstrap proportions (prop_bootstrap_delta_gt_0) summarize resampling variability and are neither Bayesian posterior probabilities nor confirmatory hypothesis tests."
+}

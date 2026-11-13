@@ -498,3 +498,113 @@ def test_saved_stage07_2x3_strict_artifacts_bootstrap_and_parity() -> None:
         assert abs(metrics["macro_f1"] - float(summary_cv.loc[artifact["model_id"], "val_macro_f1"])) < 1e-12
 
 
+def test_select_top_cv_model_row_ignores_val_and_breaks_ties_deterministically() -> None:
+    from ebhi_dip import select_top_cv_model_row
+
+    # 1. Equal CV metrics, simpler complexity must win even when val_macro_f1 is much lower.
+    tied_complexity = pd.DataFrame(
+        [
+            {
+                "model_id": "svm_b_complex",
+                "model_variant": "cv_selected",
+                "cv_macro_f1": 0.4500,
+                "cv_balanced_accuracy": 0.4300,
+                "cv_accuracy": 0.5500,
+                "cv_fold_macro_f1_mean": 0.4400,
+                "kernel": "rbf",
+                "C": 10.0,
+                "gamma": "0.01",
+                "class_weight": "balanced",
+                "val_macro_f1": 0.9900,
+            },
+            {
+                "model_id": "svm_a_simple",
+                "model_variant": "cv_selected",
+                "cv_macro_f1": 0.4500,
+                "cv_balanced_accuracy": 0.4300,
+                "cv_accuracy": 0.5500,
+                "cv_fold_macro_f1_mean": 0.4400,
+                "kernel": "linear",
+                "C": 1.0,
+                "gamma": "scale",
+                "class_weight": "none",
+                "val_macro_f1": 0.1200,
+            },
+        ]
+    )
+    assert select_top_cv_model_row(tied_complexity)["model_id"] == "svm_a_simple"
+
+    # 2. Equal CV AND equal specs must still ignore val_macro_f1 and break ties by model_id.
+    tied_identical = pd.DataFrame(
+        [
+            {
+                "model_id": "svm_z_higher_val",
+                "model_variant": "cv_selected",
+                "cv_macro_f1": 0.4000,
+                "cv_balanced_accuracy": 0.4000,
+                "cv_accuracy": 0.5000,
+                "cv_fold_macro_f1_mean": 0.4000,
+                "kernel": "linear",
+                "C": 3.0,
+                "gamma": "scale",
+                "class_weight": "none",
+                "val_macro_f1": 0.9500,
+            },
+            {
+                "model_id": "svm_a_lower_val",
+                "model_variant": "cv_selected",
+                "cv_macro_f1": 0.4000,
+                "cv_balanced_accuracy": 0.4000,
+                "cv_accuracy": 0.5000,
+                "cv_fold_macro_f1_mean": 0.4000,
+                "kernel": "linear",
+                "C": 3.0,
+                "gamma": "scale",
+                "class_weight": "none",
+                "val_macro_f1": 0.1000,
+            },
+        ]
+    )
+    assert select_top_cv_model_row(tied_identical)["model_id"] == "svm_a_lower_val"
+
+    # 3. Canonical v3 summary remains unchanged: svm_otsu_M0_C wins purely by CV.
+    strict_summary = pd.read_csv(REPO_ROOT / CLASSIFICATION_2X3_STRICT_DIR_REL / "svm_2x3_strict_selected_summary.csv")
+    assert select_top_cv_model_row(strict_summary)["model_id"] == "svm_otsu_M0_C"
+
+
+def test_conditional_all6_bootstrap_sensitivity_determinism_and_artifacts() -> None:
+    from ebhi_dip import compute_conditional_all6_val_bootstrap
+
+    strict_dir = REPO_ROOT / CLASSIFICATION_2X3_STRICT_DIR_REL
+    pred_v3 = pd.read_csv(strict_dir / "svm_2x3_strict_val_predictions.csv")
+    pred_v2 = pd.read_csv(REPO_ROOT / CLASSIFICATION_2X3_DIR_REL / "svm_2x3_val_predictions.csv")
+    uncond_m = pd.read_csv(strict_dir / "svm_2x3_strict_val_bootstrap_models.csv")
+    uncond_c = pd.read_csv(strict_dir / "svm_2x3_strict_val_paired_contrasts.csv")
+
+    saved_cond_m = pd.read_csv(strict_dir / "svm_2x3_strict_val_bootstrap_all6_models.csv")
+    saved_cond_c = pd.read_csv(strict_dir / "svm_2x3_strict_val_paired_contrasts_all6.csv")
+    saved_comp = pd.read_csv(strict_dir / "svm_2x3_strict_bootstrap_comparison.csv")
+    saved_meta = json.loads((strict_dir / "bootstrap_sensitivity_summary.json").read_text(encoding="utf-8"))
+
+    # Original unconditional bootstrap files stay intact at ~82.3% all-6 coverage.
+    assert np.allclose(uncond_m["all_6_categories_present_frac"].to_numpy(), 0.823, atol=1e-12)
+
+    re_m, re_c, re_comp, re_meta = compute_conditional_all6_val_bootstrap(
+        pred_v3,
+        unconditional_models_df=uncond_m,
+        unconditional_contrasts_df=uncond_c,
+        n_accepted=2000,
+        seed=42,
+        v2_predictions_df=pred_v2,
+    )
+    assert np.all(re_m["all_6_categories_present_frac"].to_numpy() == 1.0)
+    assert re_meta["n_accepted"] == 2000
+    assert 0.0 < re_meta["acceptance_rate"] < 1.0
+    assert "prop_bootstrap_delta_gt_0" in re_c.columns
+    assert "prob_delta_macro_f1_gt_0" not in re_c.columns
+    pd.testing.assert_frame_equal(re_m, saved_cond_m, rtol=0.0, atol=1e-12)
+    pd.testing.assert_frame_equal(re_c, saved_cond_c, rtol=0.0, atol=1e-12)
+    pd.testing.assert_frame_equal(re_comp, saved_comp, rtol=0.0, atol=1e-12)
+    assert re_meta == saved_meta
+
+

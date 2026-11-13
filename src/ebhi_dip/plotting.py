@@ -651,3 +651,187 @@ def plot_score_histograms(
         fontweight="bold",
     )
     return fig
+
+
+def plot_fg_vs_bg_intensity_histograms(
+    case: SegmentationCase,
+    bins: int = 48,
+    lab_edges: dict[str, np.ndarray] | None = None,
+    density: bool = True,
+) -> Figure:
+    """Plot GT foreground vs background distributions for Grayscale (w/ Otsu) and CIE Lab channels."""
+    from ebhi_dip.segmentation import rgb_to_gray
+
+    gray = rgb_to_gray(case.image_rgb)
+    lab = rgb_to_lab(case.image_rgb)
+    edges_map = lab_edges if lab_edges is not None else compute_shared_lab_edges([lab], bins=bins)
+    gray_edges = uint8_bin_edges(min(max(int(bins), 16), 256))
+
+    regions = {
+        "Ref FG (ground truth)": case.binary_reference,
+        "Ref BG (~ground truth)": ~case.binary_reference,
+    }
+    colors = {
+        "Ref FG (ground truth)": "#1E8449",
+        "Ref BG (~ground truth)": "#5D6D7E",
+    }
+    y_label = "Kerapatan" if density else "Jumlah piksel"
+
+    fig, axes = plt.subplots(1, 4, figsize=(15.4, 3.9), layout="constrained")
+    gray_hists = compute_region_histograms(gray, region_masks=regions, edges=gray_edges, density=density)
+    for reg_label, h_reg in gray_hists.items():
+        px_n = int(h_reg["pixel_count"])
+        suffix = "kosong (n=0)" if h_reg["empty"] else f"n={px_n:,}"
+        _step_from_hist(ax=axes[0], hist=h_reg, color=colors[reg_label], fill=True, alpha=0.18)
+        _step_from_hist(
+            ax=axes[0],
+            hist=h_reg,
+            color=colors[reg_label],
+            linewidth=1.5,
+            label=f"{reg_label} ({suffix})",
+        )
+    thr = float(case.otsu_threshold)
+    axes[0].axvline(thr, color="#C0392B", linestyle="--", linewidth=1.6, label=f"Otsu={thr:.0f} ({case.otsu_polarity})")
+    axes[0].set_xlim(-0.5, 255.5)
+    axes[0].set_title("1. Grayscale: FG vs BG")
+    axes[0].set_xlabel("Grayscale (0–255)")
+    axes[0].set_ylabel(y_label)
+    axes[0].legend(frameon=True, fontsize=7.6, loc="best")
+    axes[0].grid(axis="y", color="#EAEAEA", linewidth=0.6)
+
+    for idx, (ch_name, xlabel) in enumerate(
+        (
+            ("L*", "CIE L* (kecerahan)"),
+            ("a*", "CIE a* (hijau–merah)"),
+            ("b*", "CIE b* (biru–kuning)"),
+        ),
+        start=1,
+    ):
+        ax = axes[idx]
+        ch_hists = compute_region_histograms(
+            lab[:, :, idx - 1],
+            region_masks=regions,
+            edges=edges_map[ch_name],
+            density=density,
+        )
+        for reg_label, h_reg in ch_hists.items():
+            _step_from_hist(ax=ax, hist=h_reg, color=colors[reg_label], fill=True, alpha=0.18)
+            _step_from_hist(ax=ax, hist=h_reg, color=colors[reg_label], linewidth=1.5)
+        ax.set_xlim(float(edges_map[ch_name][0]), float(edges_map[ch_name][-1]))
+        if ch_name in ("a*", "b*") and float(edges_map[ch_name][0]) <= 0.0 <= float(edges_map[ch_name][-1]):
+            ax.axvline(0.0, color="#888888", linestyle=":", linewidth=1.0)
+        ax.set_title(f"{idx + 1}. Kanal fisik {ch_name}: FG vs BG")
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(y_label)
+        ax.grid(axis="y", color="#EAEAEA", linewidth=0.6)
+
+    fig.suptitle(
+        f"Distribusi Foreground vs Background Referensi: {case.sample_id} ({case.category} | "
+        f"{case.method_a}={case.metrics_a['dice']:.4f}, {case.method_b}={case.metrics_b['dice']:.4f})",
+        fontsize=11.0,
+        fontweight="bold",
+    )
+    return fig
+
+
+def plot_morphology_stage_comparison(
+    project_root: str | Path,
+    sample_id: str,
+    *,
+    reason_label: str = "",
+    data_root_override: str | Path | None = None,
+    split_df: pd.DataFrame | None = None,
+) -> Figure:
+    """Plot 2x4 morphology progression (M0/M1/M2 for Otsu & K-Means k=4) on a real image."""
+    from pathlib import Path as _Path
+
+    from ebhi_dip.dataset import load_reference_mask, load_rgb, load_split_manifest
+    from ebhi_dip.features import extract_morphology_features
+    from ebhi_dip.metrics import binary_segmentation_metrics
+    from ebhi_dip.paths import resolve_manifest_path
+    from ebhi_dip.segmentation import (
+        load_kmeans_model,
+        load_otsu_config,
+        morphology_variants,
+        nearest_clusters,
+        otsu_threshold_mask,
+    )
+
+    root = _Path(project_root).expanduser().resolve()
+    manifest = split_df if split_df is not None else load_split_manifest(root, verify=False)
+    matched = manifest.loc[manifest["sample_id"].eq(sample_id)]
+    if matched.empty:
+        raise KeyError(f"sample_id '{sample_id}' not found in split_manifest.")
+    rec = matched.iloc[0]
+
+    image_rgb = load_rgb(resolve_manifest_path(root, rec["image_path"], data_root_override=data_root_override))
+    binary_ref = load_reference_mask(
+        resolve_manifest_path(root, rec["mask_path"], data_root_override=data_root_override)
+    )
+
+    otsu_cfg = load_otsu_config(root)
+    k4_model = load_kmeans_model(root, k=4)
+    otsu_thr, otsu_raw = otsu_threshold_mask(
+        image_rgb,
+        foreground_polarity=str(otsu_cfg["foreground_polarity"]),
+    )
+    lab = rgb_to_lab(image_rgb)
+    k4_labels = nearest_clusters(lab.reshape(-1, 3), k4_model["cluster_centers"]).reshape(
+        image_rgb.shape[:2]
+    )
+    k4_raw = np.isin(k4_labels, k4_model["foreground_clusters"])
+    otsu_stages = morphology_variants(otsu_raw)
+    k4_stages = morphology_variants(k4_raw)
+
+    fig, axes = plt.subplots(2, 4, figsize=(15.4, 8.1), layout="constrained")
+    axes[0, 0].imshow(image_rgb, interpolation="nearest")
+    axes[0, 0].set_title(
+        f"Original RGB (224×224)\n{rec['category']} | Otsu thr={otsu_thr:.0f}",
+        fontsize=9.4,
+    )
+    ref_pct = 100.0 * float(binary_ref.mean())
+    axes[1, 0].imshow(binary_ref, cmap="gray", vmin=0, vmax=1, interpolation="nearest")
+    axes[1, 0].set_title(
+        f"GT Reference (mask >= {REFERENCE_THRESHOLD})\nRef FG={ref_pct:.1f}%",
+        fontsize=9.4,
+    )
+
+    stage_labels = {
+        "M0": "M0 (Raw)",
+        "M1": "M1 (>=16 px)",
+        "M2": "M2 (3×3 open+close)",
+    }
+    for row_idx, (fam_label, stages_dict) in enumerate((("otsu", otsu_stages), ("k4", k4_stages))):
+        for col_idx, stage in enumerate(("M0", "M1", "M2"), start=1):
+            mask = stages_dict[stage]
+            overlay, _ = build_error_overlay(image_rgb, mask, binary_ref)
+            seg_m = binary_segmentation_metrics(mask, binary_ref)
+            morph = extract_morphology_features(mask)
+            n_comp = int(round(morph["mask_component_count"]))
+            fg_pct = 100.0 * float(seg_m["predicted_foreground_fraction"])
+            ax = axes[row_idx, col_idx]
+            ax.imshow(overlay, interpolation="nearest")
+            ax.set_title(
+                f"{fam_label}_{stage} — {stage_labels[stage]}\n"
+                f"Dice={seg_m['dice']:.4f} | IoU={seg_m['iou']:.4f}\n"
+                f"FG={fg_pct:.1f}% | Comp={n_comp}",
+                fontsize=8.9,
+            )
+
+    for ax in axes.ravel():
+        ax.axis("off")
+
+    reason_text = f" | {reason_label}" if reason_label else ""
+    fig.suptitle(
+        f"Progresi Morfologi 2×3 (M0 → M1 → M2): {sample_id} (Group: {rec['group_id']}){reason_text}",
+        fontsize=11.4,
+        fontweight="bold",
+    )
+    legend_handles = [
+        Patch(facecolor="#2EA043", edgecolor="#1E6F2D", label="TP: pred & ref (hijau)"),
+        Patch(facecolor="#E67E22", edgecolor="#A85913", label="FP: pred & ~ref (oranye)"),
+        Patch(facecolor="#C0399F", edgecolor="#802369", label="FN: ~pred & ref (magenta)"),
+        Patch(facecolor="#EAEAEA", edgecolor="#888888", label="TN: ~pred & ~ref (transparan)"),
+    ]
+    fig.legend(handles=legend_handles, loc="outside lower center", ncol=4, frameon=True, fontsize=8.8)
+    return fig

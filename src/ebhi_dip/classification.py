@@ -1581,3 +1581,46 @@ def load_svm_artifact(path: str | Path) -> dict[str, object]:
     if missing:
         raise ValueError(f"SVM artifact missing required keys: {missing}.")
     return payload
+
+
+def cv_model_ranking_key(row: Mapping[str, object]) -> tuple[object, ...]:
+    """Return deterministic CV-only ordering key across selected models (never inspects val scores)."""
+    normalized: dict[str, object] = {
+        "cv_macro_f1": float(row["cv_macro_f1"]),
+        "cv_balanced_accuracy": float(row.get("cv_balanced_accuracy", 0.0)),
+        "cv_accuracy": float(row.get("cv_accuracy", 0.0)),
+        "cv_fold_macro_f1_mean": float(row.get("cv_fold_macro_f1_mean", row["cv_macro_f1"])),
+        "kernel": str(row.get("kernel", "rbf")),
+        "C": float(row.get("C", 1.0)),
+        "gamma": str(row.get("gamma", "scale")),
+        "class_weight": str(row.get("class_weight", "none")),
+    }
+    model_id = str(row.get("model_id", ""))
+    # Prefix-safe inverted codepoint tuple so lexicographically earlier model_id wins max().
+    inv_model_id = tuple(-ord(ch) for ch in model_id) + (1,)
+    return (
+        cv_selection_key_for_svm(normalized),
+        float(normalized["cv_macro_f1"]),
+        float(normalized["cv_balanced_accuracy"]),
+        float(normalized["cv_accuracy"]),
+        float(normalized["cv_fold_macro_f1_mean"]),
+        inv_model_id,
+    )
+
+
+def select_top_cv_model_row(
+    summary_df: pd.DataFrame,
+    *,
+    model_variant: str | None = "cv_selected",
+) -> pd.Series:
+    """Select the top model row strictly by deterministic CV metrics and model complexity."""
+    if summary_df.empty:
+        raise ValueError("Cannot select top CV model from an empty summary table.")
+    if model_variant is not None and "model_variant" in summary_df.columns:
+        candidates = summary_df.loc[summary_df["model_variant"].eq(model_variant)]
+        if candidates.empty:
+            raise ValueError(f"No rows found for model_variant={model_variant!r}.")
+    else:
+        candidates = summary_df
+    best_pos = max(range(len(candidates)), key=lambda idx: cv_model_ranking_key(candidates.iloc[idx]))
+    return candidates.iloc[best_pos]
