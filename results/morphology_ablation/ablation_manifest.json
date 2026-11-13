@@ -1,0 +1,112 @@
+{
+  "schema_version": "ebhi_dip.task2_controlled_morphology_ablation.v1",
+  "split_sha256": "ceeba8e282f77cdb78a9675618b3dcb6729fbc2339e2d112085a11720fc9108d",
+  "train_sample_ids_sha256": "2a55e5d4fad2edb04a3aca28b3b75654b980c997cfbed8c3131a065a3a276bf2",
+  "train_images": 1535,
+  "train_groups": 247,
+  "val_readonly_images": 372,
+  "val_readonly_groups": 53,
+  "test_images_touched": 0,
+  "test_labels_accessed": false,
+  "cv_folds": 5,
+  "cv_scheme": "StratifiedGroupKFold",
+  "min_component_area": 16,
+  "max_small_hole_area_predeclared": 15,
+  "hole_connectivity": 4,
+  "component_connectivity": 8,
+  "cross_kernel": [
+    [
+      0,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      1,
+      0
+    ]
+  ],
+  "otsu_fold_polarities": [
+    "dark",
+    "dark",
+    "dark",
+    "dark",
+    "dark"
+  ],
+  "variants": [
+    "M0",
+    "M1",
+    "M2",
+    "close_only",
+    "open_only",
+    "m2_area16",
+    "hole_fill_small"
+  ],
+  "families": [
+    "otsu",
+    "k4"
+  ],
+  "anchor_specs": [
+    {
+      "spec_id": "lin_none_C3",
+      "label": "Linear C=3 (none) [v3 Otsu M0-C]",
+      "kernel": "linear",
+      "class_weight": "none",
+      "C": 3.0,
+      "gamma": "scale"
+    },
+    {
+      "spec_id": "rbf_bal_C3_g001",
+      "label": "RBF C=3 \u03b3=0.01 (bal) [v3 Otsu M1/M2-C]",
+      "kernel": "rbf",
+      "class_weight": "balanced",
+      "C": 3.0,
+      "gamma": "0.01"
+    },
+    {
+      "spec_id": "rbf_bal_C10_g001",
+      "label": "RBF C=10 \u03b3=0.01 (bal) [v3 Otsu-B]",
+      "kernel": "rbf",
+      "class_weight": "balanced",
+      "C": 10.0,
+      "gamma": "0.01"
+    },
+    {
+      "spec_id": "rbf_bal_C3_scale",
+      "label": "RBF C=3 scale (bal) [v3 k4-C]",
+      "kernel": "rbf",
+      "class_weight": "balanced",
+      "C": 3.0,
+      "gamma": "scale"
+    },
+    {
+      "spec_id": "default_rbf_none_C1",
+      "label": "RBF C=1 scale (none) [Default]",
+      "kernel": "rbf",
+      "class_weight": "none",
+      "C": 1.0,
+      "gamma": "scale"
+    }
+  ],
+  "kmeans_seed": 42,
+  "versions": {
+    "python": "3.14.0",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "opencv": "4.14.0",
+    "scikit_learn": "1.9.1",
+    "scikit_image": "0.26.0"
+  },
+  "protected_input_sha256": {
+    "split_csv": "ceeba8e282f77cdb78a9675618b3dcb6729fbc2339e2d112085a11720fc9108d",
+    "split_sha": "b71ce04e201fa038cd82f38b243750ef86b03def7c40ecda364ab61e452c4727",
+    "otsu_raw_json": "dcd8b0867f50f10912fcf5ddd993f68f3c7de471049b29bfca157f6715a99fda",
+    "kmeans_k4_json": "0531165e8f29433738e83ae583708f00b4b595fec22885ad753118ffff2b4933",
+    "appearance_csv": "4d7b2c8b8a3c86ff710dfa02d332d304575ea481c6064f5efd5312d5e9991a21"
+  }
+}
